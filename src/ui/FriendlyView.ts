@@ -92,13 +92,13 @@ export class FriendlyView {
   }
 
   show(
-    sequence: SwipeDirection[],
-    progress: number,
-    rewardText: string,
+    _sequence: SwipeDirection[],
+    _progress: number,
+    _rewardText: string,
     character: FriendlyCharacter = "wizard",
     greeting = "",
   ): void {
-    this.render(character, this.buildText(greeting, sequence, progress, rewardText));
+    this.render(character, greeting);
   }
 
   showTeaching(
@@ -114,10 +114,16 @@ export class FriendlyView {
     );
   }
 
+  setText(text: string): void {
+    this.lastBody = text;
+    this.typewriter.play(text);
+  }
+
   private render(character: FriendlyCharacter, fullText: string): void {
     if (character !== this.shownCharacter) {
       this.shownCharacter = character;
       this.character.setTexture(character);
+      this.character.x = this.offscreenLocalX;
       this.character.setVisible(true);
       this.typewriter.setImmediate("");
       this.lastBody = fullText;
@@ -129,27 +135,16 @@ export class FriendlyView {
     this.typewriter.play(fullText);
   }
 
-  hide(): void {
-    if (this.shownCharacter === null) return;
+  hide(onComplete?: () => void): void {
+    if (this.shownCharacter === null) {
+      onComplete?.();
+      return;
+    }
     this.shownCharacter = null;
     this.lastBody = "";
     this.typewriter.setImmediate("");
     this.cancelKnock();
-    this.slideOut();
-  }
-
-  private buildText(
-    greeting: string,
-    sequence: SwipeDirection[],
-    progress: number,
-    rewardText: string,
-  ): string {
-    const lines = [
-      greeting,
-      this.formatSequence(sequence, progress),
-      rewardText,
-    ].filter((s) => s && s.length > 0);
-    return lines.join("\n");
+    this.slideOut(onComplete);
   }
 
   private buildTeachingText(
@@ -177,14 +172,17 @@ export class FriendlyView {
     });
   }
 
-  private slideOut(): void {
+  private slideOut(onComplete?: () => void): void {
     this.slideTween?.stop();
     this.slideTween = this.scene.tweens.add({
       targets: this.character,
       x: this.offscreenLocalX,
       duration: SLIDE_DURATION,
       ease: "Cubic.Out",
-      onComplete: () => this.character.setVisible(false),
+      onComplete: () => {
+        this.character.setVisible(false);
+        onComplete?.();
+      },
     });
   }
 
@@ -209,16 +207,5 @@ export class FriendlyView {
     this.knockTween?.stop();
     this.knockTween = undefined;
     this.door.setScale(1);
-  }
-
-  private formatSequence(sequence: SwipeDirection[], progress: number): string {
-    return sequence
-      .map((d, i) => {
-        const token = d === "left" ? "OFF" : "ON";
-        if (i < progress) return `·${token}·`;
-        if (i === progress) return `[${token}]`;
-        return token;
-      })
-      .join("  ");
   }
 }

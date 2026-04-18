@@ -15,7 +15,9 @@ import { SpellId } from "../game/Spell";
 
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
-const FRIENDLY_HOLD_MS = 1500;
+const FRIENDLY_HOLD_MS = 2200;
+const STORY_AUTO_RESOLVE_MS = 2500;
+const STORY_OVERLAY_HOLD_MS = 1400;
 const PANEL_HEIGHT = 474;
 const KNOWN_SPELLS: SpellId[] = ["ignite"];
 const SPELL_ANIM_MS = 900;
@@ -32,6 +34,8 @@ export class GameScene extends Phaser.Scene {
   private spellList!: SpellListView;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private prevLightOn = false;
+  private storyTimer?: Phaser.Time.TimerEvent;
+  private storyClickHandler?: () => void;
 
   constructor() {
     super({ key: "GameScene" });
@@ -88,6 +92,10 @@ export class GameScene extends Phaser.Scene {
 
   private handleCardPlayed(direction: "left" | "right"): void {
     const preSnap = this.state.snapshot();
+    if (preSnap.encounter?.kind === "story") {
+      this.handleStoryAction();
+      return;
+    }
     const preAttackHealth = preSnap.lighthouseHealth;
     const attackerName = preSnap.encounter?.enemyName ?? "Abomination";
 
@@ -113,6 +121,9 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.flashHit(result.card.damageDealt);
       this.cameras.main.shake(220, 0.006);
     }
+    if (result.card.friendlyShake) {
+      this.cameras.main.shake(360, 0.012);
+    }
     if (direction === "left") this.flashDim();
     if (snap.encounter?.kind === "unfriendly") {
       this.enemyView.setHealth(
@@ -122,7 +133,11 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.setPendingReduction(snap.encounter.enemyPendingReduction ?? 0);
       this.enemyView.setIntent(snap.encounter.enemyIntent ?? null);
     } else if (snap.encounter?.kind === "friendly") {
-      this.showFriendly(snap.encounter);
+      if (result.card.friendlyProgressText) {
+        this.friendlyView.setText(result.card.friendlyProgressText);
+      } else {
+        this.showFriendly(snap.encounter);
+      }
     }
 
     this.updateTurnIndicator();
@@ -175,33 +190,7 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => banner.destroy(),
     });
 
-    if (cast.fuelDelta) this.playFuelGain(cast.fuelDelta);
-
     this.time.delayedCall(SPELL_ANIM_MS, onComplete);
-  }
-
-  private playFuelGain(amount: number): void {
-    this.panel.pulseFuel(this);
-
-    const anchor = this.panel.fuelAnchor();
-    const floater = createText(this, anchor.x + 140, anchor.y + 20, `+${amount}`, {
-      fontSize: "112px",
-      color: "#fff6c0",
-      stroke: "#2a1a0a",
-      strokeThickness: 12,
-    })
-      .setOrigin(0.5)
-      .setAlpha(0)
-      .setDepth(210);
-    this.tweens.add({
-      targets: floater,
-      y: anchor.y - 220,
-      alpha: { from: 1, to: 0 },
-      scale: { from: 0.7, to: 1.6 },
-      duration: SPELL_ANIM_MS,
-      ease: "Cubic.Out",
-      onComplete: () => floater.destroy(),
-    });
   }
 
   private finishCardResolution(result: PlayCardResult, snap: GameStateSnapshot): void {
@@ -221,11 +210,62 @@ export class GameScene extends Phaser.Scene {
 
     if (result.encounterResolvedKind === "friendly") {
       const msg = result.friendlyMessage ?? "";
-      this.overlay.play(msg, FRIENDLY_HOLD_MS, () => this.startNextEncounter());
+      if (msg) this.friendlyView.setText(msg);
+      this.time.delayedCall(FRIENDLY_HOLD_MS, () => {
+        this.friendlyView.hide(() => this.startNextEncounter());
+      });
+      return;
+    }
+
+    if (result.encounterResolvedKind === "story") {
+      this.time.delayedCall(STORY_OVERLAY_HOLD_MS, () => {
+        this.friendlyView.hide(() => this.startNextEncounter());
+      });
       return;
     }
 
     this.card.show(snap.topCard);
+  }
+
+  private handleStoryAction(): void {
+    const preSnap = this.state.snapshot();
+    if (preSnap.encounter?.kind !== "story") return;
+    this.disarmStoryResolution();
+    const preHealth = preSnap.lighthouseHealth;
+    const preSanity = preSnap.sanity;
+    const result = this.state.resolveStoryEncounter();
+    const snap = this.state.snapshot();
+    this.panel.setResources(snap.sanity, snap.fuel);
+    this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
+    if (snap.lighthouseHealth < preHealth) {
+      this.lighthouse.playHit();
+      this.cameras.main.shake(420, 0.014);
+    } else if (snap.sanity < preSanity) {
+      this.cameras.main.shake(260, 0.008);
+    }
+    this.updateTurnIndicator();
+    this.finishCardResolution(result, snap);
+  }
+
+  private armStoryResolution(): void {
+    this.disarmStoryResolution();
+    this.storyTimer = this.time.delayedCall(STORY_AUTO_RESOLVE_MS, () =>
+      this.handleStoryAction(),
+    );
+    const handler = () => this.handleStoryAction();
+    this.storyClickHandler = handler;
+    this.input.once("pointerdown", handler);
+  }
+
+  private disarmStoryResolution(): void {
+    if (this.storyTimer) {
+      this.storyTimer.remove(false);
+      this.storyTimer = undefined;
+    }
+    if (this.storyClickHandler) {
+      this.input.off("pointerdown", this.storyClickHandler);
+      this.storyClickHandler = undefined;
+    }
   }
 
   private playEnemyAttackSequence(enemyName: string, onComplete: () => void): void {
@@ -300,6 +340,7 @@ export class GameScene extends Phaser.Scene {
     this.enemyView.setLight(snap.lightOn);
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
     this.panel.setResources(snap.sanity, snap.fuel);
+    this.disarmStoryResolution();
 
     const enc = snap.encounter;
     if (enc?.kind === "unfriendly") {
@@ -316,6 +357,17 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.hide();
       this.showFriendly(enc);
       this.panel.setEffectHints("", "");
+    } else if (enc?.kind === "story") {
+      this.enemyView.hide();
+      this.friendlyView.show(
+        [],
+        0,
+        "",
+        enc.storyCharacter ?? "wizard",
+        enc.storyText ?? "",
+      );
+      this.panel.setEffectHints("", "");
+      this.armStoryResolution();
     } else {
       this.enemyView.hide();
       this.friendlyView.hide();

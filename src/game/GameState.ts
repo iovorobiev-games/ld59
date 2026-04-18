@@ -1,12 +1,15 @@
 import { AbilityIntent } from "./Ability";
 import { Card, CardSupplier } from "./Card";
 import {
+  DeferredEncounter,
   Encounter,
   EncounterKind,
   FriendlyCharacter,
   FriendlyEncounter,
   FriendlyOutcome,
   FriendlyReward,
+  StoryConsequence,
+  StoryEncounter,
   SwipeDirection,
   TeachingEncounter,
   TeachingStatus,
@@ -18,6 +21,7 @@ import {
   buildDefaultDeck,
   pickAffordableFriendlyReplacement,
 } from "./EncounterManager";
+import { createEncounterById } from "./EncounterRegistry";
 import {
   LightState,
   Spell,
@@ -48,6 +52,8 @@ export interface EncounterSnapshot {
   teachingOffered?: readonly [Spell, Spell];
   teachingStatus?: TeachingStatus;
   teachingFailureText?: string;
+  storyText?: string;
+  storyCharacter?: FriendlyCharacter;
 }
 
 export interface GameStateSnapshot {
@@ -75,6 +81,8 @@ export interface CardPlayEffect {
   damageDealt?: number;
   reductionAdded?: number;
   friendlyOutcome?: FriendlyOutcome;
+  friendlyProgressText?: string;
+  friendlyShake?: boolean;
 }
 
 export interface EnemyAttackEffect {
@@ -91,6 +99,8 @@ export interface PlayCardResult {
   friendlyMessage?: string;
   friendlyMessageKind?: "success" | "failure";
   friendlyReward?: FriendlyReward;
+  storyResolved?: boolean;
+  storyConsequence?: StoryConsequence;
   gameOutcome?: "lost" | "won";
   spellCast?: SpellCastEffect;
 }
@@ -136,6 +146,7 @@ export class GameState {
     this.current = this.supplier.draw();
     this.encounters = new EncounterManager(opts.deck ?? buildDefaultDeck());
     this.spellBook = new SpellBook(opts.knownSpellIds ?? []);
+    this.materializeIfDeferred();
     this.ensureAffordableFriendly();
     this.rollIntentIfUnfriendly();
   }
@@ -143,6 +154,20 @@ export class GameState {
   private rollIntentIfUnfriendly(): void {
     const enc = this.encounters.current();
     if (enc instanceof UnfriendlyEncounter) enc.enemy.rollIntent();
+  }
+
+  private materializeIfDeferred(): void {
+    const enc = this.encounters.current();
+    if (enc instanceof DeferredEncounter) {
+      const created = createEncounterById(enc.id, { lightOn: this.lightOn });
+      if (created) this.encounters.replaceCurrent(created);
+    }
+  }
+
+  private queueChainFollowup(resolved: Encounter): void {
+    const nextId = resolved.getNextEncounterId?.();
+    if (!nextId) return;
+    this.encounters.insertRandomAfterCurrent(new DeferredEncounter(nextId));
   }
 
   snapshot(): GameStateSnapshot {
@@ -200,6 +225,13 @@ export class GameState {
         teachingFailureText: enc.failureText,
       };
     }
+    if (enc instanceof StoryEncounter) {
+      return {
+        ...base,
+        storyText: enc.text,
+        storyCharacter: enc.character,
+      };
+    }
     return base;
   }
 
@@ -209,12 +241,19 @@ export class GameState {
 
   canPlayCard(direction: SwipeDirection): boolean {
     if (this.phase !== "player") return false;
+    const enc = this.encounters.current();
+    if (enc instanceof StoryEncounter) return true;
     if (direction === "right" && this.fuel < this.lightFuelCost) return false;
     return true;
   }
 
   playCard(direction: SwipeDirection): PlayCardResult {
     if (this.phase !== "player") return { card: {} };
+
+    const currentEnc = this.encounters.current();
+    if (currentEnc instanceof StoryEncounter) {
+      return this.resolveStory(currentEnc);
+    }
 
     if (direction === "left") {
       this.sanity = Math.max(0, this.sanity - 1);
@@ -240,14 +279,16 @@ export class GameState {
         card.reductionAdded = 1;
       }
     } else if (enc instanceof FriendlyEncounter) {
-      const outcome = enc.notePlayed(direction);
-      card.friendlyOutcome = outcome;
-      if (outcome === "success") {
+      const step = enc.notePlayed(direction);
+      card.friendlyOutcome = step.outcome;
+      if (step.progressText) card.friendlyProgressText = step.progressText;
+      if (step.shake) card.friendlyShake = true;
+      if (step.outcome === "success") {
         this.applyReward(enc.reward);
         result.friendlyMessage = enc.successText;
         result.friendlyMessageKind = "success";
         result.friendlyReward = { ...enc.reward };
-      } else if (outcome === "fail") {
+      } else if (step.outcome === "fail") {
         result.friendlyMessage = enc.failureText;
         result.friendlyMessageKind = "failure";
       }
@@ -267,6 +308,7 @@ export class GameState {
 
     if (enc?.isResolved()) {
       result.encounterResolvedKind = enc.kind;
+      this.queueChainFollowup(enc);
       this.cardsThisTurn = 0;
       this.phase = "transitioning";
       if (this.sanity <= 0 || this.health <= 0) {
@@ -283,6 +325,7 @@ export class GameState {
         }
         if (enc.enemy.isDead()) {
           result.encounterResolvedKind = enc.kind;
+          this.queueChainFollowup(enc);
           this.cardsThisTurn = 0;
           this.extraActionsThisTurn = 0;
           this.phase = "transitioning";
@@ -327,9 +370,52 @@ export class GameState {
       this.phase = "victory";
       return;
     }
+    this.materializeIfDeferred();
     this.ensureAffordableFriendly();
     this.phase = "player";
     this.rollIntentIfUnfriendly();
+  }
+
+  resolveStoryEncounter(): PlayCardResult {
+    if (this.phase !== "player") return { card: {} };
+    const enc = this.encounters.current();
+    if (!(enc instanceof StoryEncounter)) return { card: {} };
+    return this.resolveStory(enc);
+  }
+
+  private resolveStory(enc: StoryEncounter): PlayCardResult {
+    enc.resolve();
+    this.applyConsequence(enc.consequence);
+    this.queueChainFollowup(enc);
+    this.cardsThisTurn = 0;
+    this.phase = "transitioning";
+    const result: PlayCardResult = {
+      card: {},
+      encounterResolvedKind: "story",
+      storyResolved: true,
+      storyConsequence: { ...enc.consequence },
+    };
+    if (this.sanity <= 0 || this.health <= 0) {
+      result.gameOutcome = "lost";
+      this.phase = "gameOver";
+    }
+    return result;
+  }
+
+  private applyConsequence(c: StoryConsequence): void {
+    if (c.fuel) this.fuel = Math.max(0, this.fuel + c.fuel);
+    if (c.sanity) {
+      this.sanity = Math.min(
+        INITIAL_SANITY,
+        Math.max(0, this.sanity + c.sanity),
+      );
+    }
+    if (c.hp) {
+      this.health = Math.min(
+        INITIAL_LIGHTHOUSE_HEALTH,
+        Math.max(0, this.health + c.hp),
+      );
+    }
   }
 
   private ensureAffordableFriendly(): void {

@@ -1,12 +1,14 @@
 import { Enemy } from "./Enemy";
 import { LightState, SPELL_SEQUENCE_LENGTH, Spell, sequencesMatch } from "./Spell";
 
-export type EncounterKind = "friendly" | "unfriendly";
+export type EncounterKind = "friendly" | "unfriendly" | "story" | "deferred";
 export type SwipeDirection = "left" | "right";
+export type EncounterId = string;
 
 export interface Encounter {
   readonly kind: EncounterKind;
   isResolved(): boolean;
+  getNextEncounterId?(): EncounterId | undefined;
 }
 
 export class UnfriendlyEncounter implements Encounter {
@@ -36,6 +38,16 @@ export interface FriendlyEncounterConfig {
   failureText: string;
   character?: FriendlyCharacter;
   greeting?: string;
+  progressTexts?: string[];
+  shakeOnFinalStep?: boolean;
+  nextOnSuccess?: EncounterId;
+  nextOnFailure?: EncounterId;
+}
+
+export interface FriendlyStepResult {
+  outcome: FriendlyOutcome;
+  progressText?: string;
+  shake?: boolean;
 }
 
 export class FriendlyEncounter implements Encounter {
@@ -46,6 +58,10 @@ export class FriendlyEncounter implements Encounter {
   readonly failureText: string;
   readonly character: FriendlyCharacter;
   readonly greeting: string;
+  readonly progressTexts: string[];
+  readonly shakeOnFinalStep: boolean;
+  readonly nextOnSuccess?: EncounterId;
+  readonly nextOnFailure?: EncounterId;
   private progress = 0;
   private failed = false;
 
@@ -56,17 +72,31 @@ export class FriendlyEncounter implements Encounter {
     this.failureText = config.failureText;
     this.character = config.character ?? "wizard";
     this.greeting = config.greeting ?? "";
+    this.progressTexts = config.progressTexts ?? [];
+    this.shakeOnFinalStep = config.shakeOnFinalStep ?? false;
+    this.nextOnSuccess = config.nextOnSuccess;
+    this.nextOnFailure = config.nextOnFailure;
   }
 
-  notePlayed(direction: SwipeDirection): FriendlyOutcome {
-    if (this.isResolved()) return this.failed ? "fail" : "success";
+  notePlayed(direction: SwipeDirection): FriendlyStepResult {
+    if (this.isResolved()) {
+      return { outcome: this.failed ? "fail" : "success" };
+    }
     const expected = this.sequence[this.progress];
     if (direction !== expected) {
       this.failed = true;
-      return "fail";
+      return { outcome: "fail" };
     }
+    const stepIdx = this.progress;
     this.progress += 1;
-    return this.progress >= this.sequence.length ? "success" : "progress";
+    const isLast = this.progress >= this.sequence.length;
+    const progressText = this.progressTexts[stepIdx];
+    const shake = this.shakeOnFinalStep && isLast;
+    return {
+      outcome: isLast ? "success" : "progress",
+      progressText,
+      shake,
+    };
   }
 
   isResolved(): boolean {
@@ -95,6 +125,62 @@ export class FriendlyEncounter implements Encounter {
 
   rightCount(): number {
     return this.sequence.filter((d) => d === "right").length;
+  }
+
+  getNextEncounterId(): EncounterId | undefined {
+    if (!this.isResolved()) return undefined;
+    return this.failed ? this.nextOnFailure : this.nextOnSuccess;
+  }
+}
+
+export interface StoryConsequence {
+  fuel?: number;
+  sanity?: number;
+  hp?: number;
+}
+
+export interface StoryEncounterConfig {
+  text: string;
+  character: FriendlyCharacter;
+  consequence: StoryConsequence;
+  nextOnSuccess?: EncounterId;
+}
+
+export class StoryEncounter implements Encounter {
+  readonly kind = "story" as const;
+  readonly text: string;
+  readonly character: FriendlyCharacter;
+  readonly consequence: StoryConsequence;
+  readonly nextOnSuccess?: EncounterId;
+  private resolved = false;
+
+  constructor(config: StoryEncounterConfig) {
+    this.text = config.text;
+    this.character = config.character;
+    this.consequence = config.consequence;
+    this.nextOnSuccess = config.nextOnSuccess;
+  }
+
+  resolve(): void {
+    this.resolved = true;
+  }
+
+  isResolved(): boolean {
+    return this.resolved;
+  }
+
+  getNextEncounterId(): EncounterId | undefined {
+    return this.resolved ? this.nextOnSuccess : undefined;
+  }
+}
+
+export class DeferredEncounter implements Encounter {
+  readonly kind = "deferred" as const;
+
+  constructor(readonly id: EncounterId) {}
+
+  isResolved(): boolean {
+    return false;
   }
 }
 
