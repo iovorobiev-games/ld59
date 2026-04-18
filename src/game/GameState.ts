@@ -4,11 +4,18 @@ import {
   Encounter,
   EncounterKind,
   FriendlyEncounter,
+  FriendlyOutcome,
+  FriendlyReward,
+  SwipeDirection,
   UnfriendlyEncounter,
 } from "./Encounter";
-import { EncounterManager, buildDefaultDeck } from "./EncounterManager";
+import {
+  EncounterManager,
+  buildDefaultDeck,
+  pickAffordableFriendlyReplacement,
+} from "./EncounterManager";
 
-export type SwipeDirection = "left" | "right";
+export type { SwipeDirection };
 
 export type GamePhase = "player" | "transitioning" | "gameOver" | "victory";
 
@@ -21,7 +28,9 @@ export interface EncounterSnapshot {
   enemyMaxHealth?: number;
   enemyPendingReduction?: number;
   enemyIntent?: AbilityIntent;
-  friendlyDescription?: string;
+  friendlySequence?: SwipeDirection[];
+  friendlyProgress?: number;
+  friendlyRewardText?: string;
 }
 
 export interface GameStateSnapshot {
@@ -40,7 +49,7 @@ export interface GameStateSnapshot {
 export interface CardPlayEffect {
   damageDealt?: number;
   reductionAdded?: number;
-  friendlyProgress?: boolean;
+  friendlyOutcome?: FriendlyOutcome;
 }
 
 export interface EnemyAttackEffect {
@@ -54,6 +63,9 @@ export interface PlayCardResult {
   card: CardPlayEffect;
   enemyAttack?: EnemyAttackEffect;
   encounterResolvedKind?: EncounterKind;
+  friendlyMessage?: string;
+  friendlyMessageKind?: "success" | "failure";
+  friendlyReward?: FriendlyReward;
   gameOutcome?: "lost" | "won";
 }
 
@@ -76,6 +88,7 @@ export class GameState {
   constructor(deck?: Encounter[]) {
     this.current = this.supplier.draw();
     this.encounters = new EncounterManager(deck ?? buildDefaultDeck());
+    this.ensureAffordableFriendly();
     this.rollIntentIfUnfriendly();
   }
 
@@ -118,7 +131,12 @@ export class GameState {
       };
     }
     if (enc instanceof FriendlyEncounter) {
-      return { ...base, friendlyDescription: enc.description };
+      return {
+        ...base,
+        friendlySequence: [...enc.sequence],
+        friendlyProgress: enc.getProgress(),
+        friendlyRewardText: enc.describeReward(),
+      };
     }
     return base;
   }
@@ -142,6 +160,8 @@ export class GameState {
 
     const enc = this.encounters.current();
     const card: CardPlayEffect = {};
+    const result: PlayCardResult = { card };
+
     if (enc instanceof UnfriendlyEncounter) {
       if (direction === "right") {
         enc.enemy.takeDamage(1);
@@ -151,19 +171,30 @@ export class GameState {
         card.reductionAdded = 1;
       }
     } else if (enc instanceof FriendlyEncounter) {
-      enc.notePlayed();
-      card.friendlyProgress = true;
+      const outcome = enc.notePlayed(direction);
+      card.friendlyOutcome = outcome;
+      if (outcome === "success") {
+        this.applyReward(enc.reward);
+        result.friendlyMessage = enc.successText;
+        result.friendlyMessageKind = "success";
+        result.friendlyReward = { ...enc.reward };
+      } else if (outcome === "fail") {
+        result.friendlyMessage = enc.failureText;
+        result.friendlyMessageKind = "failure";
+      }
     }
 
     this.cardsThisTurn += 1;
     this.current = this.supplier.draw();
 
-    const result: PlayCardResult = { card };
-
     if (enc?.isResolved()) {
       result.encounterResolvedKind = enc.kind;
       this.cardsThisTurn = 0;
       this.phase = "transitioning";
+      if (this.sanity <= 0 || this.health <= 0) {
+        result.gameOutcome = "lost";
+        this.phase = "gameOver";
+      }
       return result;
     }
 
@@ -194,8 +225,27 @@ export class GameState {
       this.phase = "victory";
       return;
     }
+    this.ensureAffordableFriendly();
     this.phase = "player";
     this.rollIntentIfUnfriendly();
+  }
+
+  private ensureAffordableFriendly(): void {
+    const enc = this.encounters.current();
+    if (!(enc instanceof FriendlyEncounter)) return;
+    if (enc.rightCount() <= this.fuel) return;
+    const replacement = pickAffordableFriendlyReplacement(this.fuel);
+    this.encounters.replaceCurrent(replacement);
+  }
+
+  private applyReward(reward: FriendlyReward): void {
+    if (reward.fuel) this.fuel += reward.fuel;
+    if (reward.sanity) {
+      this.sanity = Math.min(INITIAL_SANITY, this.sanity + reward.sanity);
+    }
+    if (reward.hp) {
+      this.health = Math.min(INITIAL_LIGHTHOUSE_HEALTH, this.health + reward.hp);
+    }
   }
 
   private applyLighthouseDamage(amount: number): void {

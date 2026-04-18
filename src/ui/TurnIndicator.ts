@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { SwipeDirection } from "../game/Encounter";
 import { createText } from "./fonts";
 
 export interface TurnIndicatorState {
@@ -7,6 +8,8 @@ export interface TurnIndicatorState {
   encounterPosition: number;
   encounterTotal: number;
   kind: "friendly" | "unfriendly" | null;
+  friendlySequence?: SwipeDirection[];
+  friendlyProgress?: number;
 }
 
 export class TurnIndicator {
@@ -27,21 +30,36 @@ export class TurnIndicator {
   }
 
   update(state: TurnIndicatorState): void {
-    const remaining = Math.max(0, state.cardsPerTurn - state.cardsPlayed);
     this.encounterText.setText(
       `Encounter ${state.encounterPosition} / ${state.encounterTotal}`,
     );
     if (state.kind === "friendly") {
+      const seq = state.friendlySequence ?? [];
+      const progress = state.friendlyProgress ?? 0;
       this.turnText
-        .setText("Play any 1 card to pass")
+        .setText(this.formatFriendly(seq, progress))
         .setColor("#ffd97a");
     } else if (state.kind === "unfriendly") {
+      const remaining = Math.max(0, state.cardsPerTurn - state.cardsPlayed);
       this.turnText
-        .setText(`Cards this turn: ${state.cardsPlayed} / ${state.cardsPerTurn}  (${remaining} left)`)
+        .setText(
+          `Cards this turn: ${state.cardsPlayed} / ${state.cardsPerTurn}  (${remaining} left)`,
+        )
         .setColor("#ffffff");
     } else {
       this.turnText.setText("");
     }
+  }
+
+  private formatFriendly(sequence: SwipeDirection[], progress: number): string {
+    return sequence
+      .map((d, i) => {
+        const token = d === "left" ? "OFF" : "ON";
+        if (i < progress) return `·${token}·`;
+        if (i === progress) return `[${token}]`;
+        return token;
+      })
+      .join("  ");
   }
 
   setVisible(v: boolean): void {

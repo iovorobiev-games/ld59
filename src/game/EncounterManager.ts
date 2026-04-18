@@ -3,6 +3,7 @@ import { Enemy } from "./Enemy";
 import {
   Encounter,
   FriendlyEncounter,
+  FriendlyEncounterConfig,
   UnfriendlyEncounter,
 } from "./Encounter";
 
@@ -18,6 +19,10 @@ export class EncounterManager {
   advance(): Encounter | null {
     this.index += 1;
     return this.current();
+  }
+
+  replaceCurrent(enc: Encounter): void {
+    if (this.index < this.deck.length) this.deck[this.index] = enc;
   }
 
   isComplete(): boolean {
@@ -37,6 +42,48 @@ export class EncounterManager {
   }
 }
 
+const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
+  {
+    sequence: ["left", "left", "left"],
+    reward: { fuel: 3, hp: 2 },
+    successText: "Bless this light.",
+    failureText: "Ok then.",
+  },
+  {
+    sequence: ["left", "left", "left"],
+    reward: { fuel: 5 },
+    successText: "Take the oil, keeper.",
+    failureText: "Suit yourself.",
+  },
+  {
+    sequence: ["right", "right", "right"],
+    reward: { sanity: 5 },
+    successText: "The song steadies you.",
+    failureText: "No means no...",
+  },
+  {
+    sequence: ["left", "left", "right"],
+    reward: { fuel: 3, sanity: 3 },
+    successText: "A fair trade.",
+    failureText: "Not the dance I asked for.",
+  },
+  {
+    sequence: ["left", "right", "right"],
+    reward: { fuel: 3, sanity: 3 },
+    successText: "A fair trade.",
+    failureText: "Not the dance I asked for.",
+  },
+];
+
+function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
+  return new FriendlyEncounter({
+    sequence: [...cfg.sequence],
+    reward: { ...cfg.reward },
+    successText: cfg.successText,
+    failureText: cfg.failureText,
+  });
+}
+
 export function buildDefaultDeck(): Encounter[] {
   return [
     new UnfriendlyEncounter(
@@ -46,7 +93,7 @@ export function buildDefaultDeck(): Encounter[] {
         abilities: [new DealDamageAbility(1)],
       }),
     ),
-    new FriendlyEncounter("A wandering nun mutters a blessing."),
+    cloneFriendly(FRIENDLY_POOL[0]),
     new UnfriendlyEncounter(
       new Enemy({
         name: "Lurker",
@@ -54,7 +101,8 @@ export function buildDefaultDeck(): Encounter[] {
         abilities: [new DealDamageAbility(1), new DealDamageAbility(2)],
       }),
     ),
-    new FriendlyEncounter("A drowned cat curls by the door."),
+    cloneFriendly(FRIENDLY_POOL[3]),
+    cloneFriendly(FRIENDLY_POOL[2]),
     new UnfriendlyEncounter(
       new Enemy({
         name: "Abomination",
@@ -66,6 +114,8 @@ export function buildDefaultDeck(): Encounter[] {
         ],
       }),
     ),
+    cloneFriendly(FRIENDLY_POOL[4]),
+    cloneFriendly(FRIENDLY_POOL[1]),
     new UnfriendlyEncounter(
       new Enemy({
         name: "Leviathan",
@@ -78,4 +128,16 @@ export function buildDefaultDeck(): Encounter[] {
       }),
     ),
   ];
+}
+
+export function pickAffordableFriendlyReplacement(fuel: number): FriendlyEncounter {
+  const affordable = FRIENDLY_POOL.filter((cfg) => {
+    const rightCount = cfg.sequence.filter((d) => d === "right").length;
+    return rightCount <= fuel;
+  });
+  const pool = affordable.length > 0 ? affordable : FRIENDLY_POOL.filter((cfg) =>
+    cfg.sequence.every((d) => d === "left"),
+  );
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  return cloneFriendly(pick);
 }
