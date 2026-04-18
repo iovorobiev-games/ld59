@@ -34,43 +34,34 @@ interface SpellRow {
 
 export class SpellListView {
   private scene: Phaser.Scene;
+  private screenHeight: number;
+  private created: Phaser.GameObjects.GameObject[] = [];
   private rows: SpellRow[] = [];
   private currentDots: Phaser.GameObjects.Arc[] = [];
   private panelBounds: { left: number; top: number; width: number; height: number } | null = null;
+  private knownKey = "";
+  private lastSequence: readonly LightState[] = [];
 
   constructor(scene: Phaser.Scene, screenHeight: number, knownIds: readonly SpellId[]) {
     this.scene = scene;
+    this.screenHeight = screenHeight;
+    this.setKnown(knownIds);
+  }
+
+  setKnown(knownIds: readonly SpellId[]): void {
     const known = new Set(knownIds);
     const spells = ALL_SPELLS.filter((s) => known.has(s.id));
+    const key = spells.map((s) => s.id).join(",");
+    if (key === this.knownKey) return;
+    this.knownKey = key;
+    this.destroyAll();
     if (spells.length === 0) return;
-
-    const panelHeight =
-      PAD * 2 + HEADER_HEIGHT + CURRENT_HEIGHT + spells.length * ROW_HEIGHT + (spells.length - 1) * ROW_GAP;
-    const panelLeft = MARGIN;
-    const panelTop = screenHeight - MARGIN - panelHeight;
-    this.panelBounds = { left: panelLeft, top: panelTop, width: PANEL_WIDTH, height: panelHeight };
-
-    scene.add
-      .rectangle(panelLeft, panelTop, PANEL_WIDTH, panelHeight, BG_COLOR, BG_ALPHA)
-      .setOrigin(0)
-      .setStrokeStyle(1, 0x2a2a3a)
-      .setDepth(DEPTH);
-
-    createText(scene, panelLeft + PAD, panelTop + PAD, "SPELLS", {
-      fontSize: "24px",
-      color: "#ffd27a",
-    }).setDepth(DEPTH + 1);
-
-    this.buildCurrentSequence(panelLeft, panelTop + PAD + HEADER_HEIGHT);
-
-    const rowsTop = panelTop + PAD + HEADER_HEIGHT + CURRENT_HEIGHT;
-    spells.forEach((spell, i) => {
-      const rowY = rowsTop + i * (ROW_HEIGHT + ROW_GAP);
-      this.drawRow(spell, panelLeft, rowY);
-    });
+    this.buildPanel(spells);
+    this.setSequence(this.lastSequence);
   }
 
   setSequence(history: readonly LightState[]): void {
+    this.lastSequence = history;
     this.currentDots.forEach((dot, i) => {
       const state = history[i];
       if (state === undefined) {
@@ -112,11 +103,57 @@ export class SpellListView {
     };
   }
 
+  private destroyAll(): void {
+    this.created.forEach((obj) => obj.destroy());
+    this.created = [];
+    this.rows = [];
+    this.currentDots = [];
+    this.panelBounds = null;
+  }
+
+  private track<T extends Phaser.GameObjects.GameObject>(obj: T): T {
+    this.created.push(obj);
+    return obj;
+  }
+
+  private buildPanel(spells: Spell[]): void {
+    const panelHeight =
+      PAD * 2 + HEADER_HEIGHT + CURRENT_HEIGHT + spells.length * ROW_HEIGHT + (spells.length - 1) * ROW_GAP;
+    const panelLeft = MARGIN;
+    const panelTop = this.screenHeight - MARGIN - panelHeight;
+    this.panelBounds = { left: panelLeft, top: panelTop, width: PANEL_WIDTH, height: panelHeight };
+
+    this.track(
+      this.scene.add
+        .rectangle(panelLeft, panelTop, PANEL_WIDTH, panelHeight, BG_COLOR, BG_ALPHA)
+        .setOrigin(0)
+        .setStrokeStyle(1, 0x2a2a3a)
+        .setDepth(DEPTH),
+    );
+
+    this.track(
+      createText(this.scene, panelLeft + PAD, panelTop + PAD, "SPELLS", {
+        fontSize: "24px",
+        color: "#ffd27a",
+      }).setDepth(DEPTH + 1),
+    );
+
+    this.buildCurrentSequence(panelLeft, panelTop + PAD + HEADER_HEIGHT);
+
+    const rowsTop = panelTop + PAD + HEADER_HEIGHT + CURRENT_HEIGHT;
+    spells.forEach((spell, i) => {
+      const rowY = rowsTop + i * (ROW_HEIGHT + ROW_GAP);
+      this.drawRow(spell, panelLeft, rowY);
+    });
+  }
+
   private buildCurrentSequence(panelLeft: number, y: number): void {
-    createText(this.scene, panelLeft + PAD, y, "CURRENT", {
-      fontSize: "14px",
-      color: "#8a8aa0",
-    }).setDepth(DEPTH + 1);
+    this.track(
+      createText(this.scene, panelLeft + PAD, y, "CURRENT", {
+        fontSize: "14px",
+        color: "#8a8aa0",
+      }).setDepth(DEPTH + 1),
+    );
 
     const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * SPELL_SEQUENCE_LENGTH + DOT_SPACING / 2;
     const dotsY = y + 10;
@@ -126,6 +163,7 @@ export class SpellListView {
         .setStrokeStyle(1, 0x101018)
         .setAlpha(0.6)
         .setDepth(DEPTH + 1);
+      this.track(dot);
       this.currentDots.push(dot);
     }
   }
@@ -135,24 +173,31 @@ export class SpellListView {
       .rectangle(panelLeft + PAD / 2, rowY - 2, PANEL_WIDTH - PAD, ROW_HEIGHT, ROW_FLASH_COLOR, 0)
       .setOrigin(0)
       .setDepth(DEPTH);
+    this.track(bg);
 
-    createText(this.scene, panelLeft + PAD, rowY, spell.name, {
-      fontSize: "18px",
-      color: NAME_COLOR,
-    }).setDepth(DEPTH + 1);
+    this.track(
+      createText(this.scene, panelLeft + PAD, rowY, spell.name, {
+        fontSize: "18px",
+        color: NAME_COLOR,
+      }).setDepth(DEPTH + 1),
+    );
 
-    createText(this.scene, panelLeft + PAD, rowY + 20, spell.description, {
-      fontSize: "12px",
-      color: DESC_COLOR,
-    }).setDepth(DEPTH + 1);
+    this.track(
+      createText(this.scene, panelLeft + PAD, rowY + 20, spell.description, {
+        fontSize: "12px",
+        color: DESC_COLOR,
+      }).setDepth(DEPTH + 1),
+    );
 
     const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * 3 + DOT_SPACING / 2;
     const dotsY = rowY + ROW_HEIGHT / 2 - 4;
     spell.sequence.forEach((state, idx) => {
-      this.scene.add
-        .circle(dotsX + idx * DOT_SPACING, dotsY, DOT_RADIUS, dotColor(state))
-        .setStrokeStyle(1, 0x101018)
-        .setDepth(DEPTH + 1);
+      this.track(
+        this.scene.add
+          .circle(dotsX + idx * DOT_SPACING, dotsY, DOT_RADIUS, dotColor(state))
+          .setStrokeStyle(1, 0x101018)
+          .setDepth(DEPTH + 1),
+      );
     });
 
     this.rows.push({ id: spell.id, bg });

@@ -8,14 +8,23 @@ import {
   FriendlyOutcome,
   FriendlyReward,
   SwipeDirection,
+  TeachingEncounter,
+  TeachingStatus,
   UnfriendlyEncounter,
+  WizardTeachingPlaceholder,
 } from "./Encounter";
 import {
   EncounterManager,
   buildDefaultDeck,
   pickAffordableFriendlyReplacement,
 } from "./EncounterManager";
-import { LightState, Spell, SpellId } from "./Spell";
+import {
+  LightState,
+  Spell,
+  SpellId,
+  getSpell,
+  signalFuelCost,
+} from "./Spell";
 import { SpellBook } from "./SpellBook";
 
 export type { SwipeDirection };
@@ -36,6 +45,9 @@ export interface EncounterSnapshot {
   friendlyRewardText?: string;
   friendlyCharacter?: FriendlyCharacter;
   friendlyGreeting?: string;
+  teachingOffered?: readonly [Spell, Spell];
+  teachingStatus?: TeachingStatus;
+  teachingFailureText?: string;
 }
 
 export interface GameStateSnapshot {
@@ -50,6 +62,7 @@ export interface GameStateSnapshot {
   cardsPerTurn: number;
   encounter: EncounterSnapshot | null;
   spellSequence: readonly LightState[];
+  knownSpellIds: readonly SpellId[];
 }
 
 export interface SpellCastEffect {
@@ -93,6 +106,15 @@ export interface GameStateOpts {
   knownSpellIds?: readonly SpellId[];
 }
 
+function shuffle<T>(items: readonly T[]): T[] {
+  const pool = [...items];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool;
+}
+
 export class GameState {
   private sanity = INITIAL_SANITY;
   private fuel = INITIAL_FUEL;
@@ -105,6 +127,10 @@ export class GameState {
   private phase: GamePhase = "player";
   private fuelSurcharge = 0;
   private spellBook: SpellBook;
+  private stunNextAttack = false;
+  private lighthouseDefence = 0;
+  private extraActionsThisTurn = 0;
+  private burnActiveInEncounter = false;
 
   constructor(opts: GameStateOpts = {}) {
     this.current = this.supplier.draw();
@@ -129,9 +155,10 @@ export class GameState {
       topCard: this.current,
       phase: this.phase,
       cardsThisTurn: this.cardsThisTurn,
-      cardsPerTurn: CARDS_PER_TURN,
+      cardsPerTurn: CARDS_PER_TURN + this.extraActionsThisTurn,
       encounter: this.snapshotEncounter(),
       spellSequence: [...this.spellBook.sequence()],
+      knownSpellIds: [...this.spellBook.knownIds()],
     };
   }
 
@@ -161,6 +188,16 @@ export class GameState {
         friendlyRewardText: enc.describeReward(),
         friendlyCharacter: enc.character,
         friendlyGreeting: enc.greeting,
+      };
+    }
+    if (enc instanceof TeachingEncounter) {
+      return {
+        ...base,
+        friendlyCharacter: enc.character,
+        friendlyGreeting: enc.greeting,
+        teachingOffered: enc.offered,
+        teachingStatus: enc.currentStatus(),
+        teachingFailureText: enc.failureText,
       };
     }
     return base;
@@ -214,6 +251,15 @@ export class GameState {
         result.friendlyMessage = enc.failureText;
         result.friendlyMessageKind = "failure";
       }
+    } else if (enc instanceof TeachingEncounter) {
+      const status = enc.notePlayed(this.lightOn ? "on" : "off");
+      card.friendlyOutcome = status === "learned" ? "success" : "progress";
+      if (status === "learned") {
+        const learned = enc.getLearned()!;
+        this.spellBook.learn(learned.id);
+        result.friendlyMessage = `${learned.name} learned!`;
+        result.friendlyMessageKind = "success";
+      }
     }
 
     this.cardsThisTurn += 1;
@@ -230,20 +276,35 @@ export class GameState {
       return result;
     }
 
-    if (this.cardsThisTurn >= CARDS_PER_TURN) {
+    if (this.cardsThisTurn >= CARDS_PER_TURN + this.extraActionsThisTurn) {
       if (enc instanceof UnfriendlyEncounter) {
-        const ev = enc.enemy.useIntent({
-          source: enc.enemy,
-          target: {
-            takeDamage: (amt) => this.applyLighthouseDamage(amt),
-            takeSanityDamage: (amt) => this.applySanityDamage(amt),
-            applyFuelSurcharge: (amt) => this.addFuelSurcharge(amt),
-          },
-        });
-        result.enemyAttack = ev;
+        if (this.burnActiveInEncounter && !enc.enemy.isDead()) {
+          enc.enemy.takeDamage(1);
+        }
+        if (enc.enemy.isDead()) {
+          result.encounterResolvedKind = enc.kind;
+          this.cardsThisTurn = 0;
+          this.extraActionsThisTurn = 0;
+          this.phase = "transitioning";
+          return result;
+        }
+        if (this.stunNextAttack) {
+          this.stunNextAttack = false;
+        } else {
+          const ev = enc.enemy.useIntent({
+            source: enc.enemy,
+            target: {
+              takeDamage: (amt) => this.applyLighthouseDamage(amt),
+              takeSanityDamage: (amt) => this.applySanityDamage(amt),
+              applyFuelSurcharge: (amt) => this.addFuelSurcharge(amt),
+            },
+          });
+          result.enemyAttack = ev;
+        }
         if (!enc.enemy.isDead()) enc.enemy.rollIntent();
       }
       this.cardsThisTurn = 0;
+      this.extraActionsThisTurn = 0;
     }
 
     if (this.health <= 0 || this.sanity <= 0) {
@@ -257,6 +318,10 @@ export class GameState {
   advanceEncounter(): void {
     if (this.phase !== "transitioning") return;
     this.fuelSurcharge = 0;
+    this.burnActiveInEncounter = false;
+    this.stunNextAttack = false;
+    this.lighthouseDefence = 0;
+    this.extraActionsThisTurn = 0;
     const next = this.encounters.advance();
     if (!next) {
       this.phase = "victory";
@@ -269,10 +334,29 @@ export class GameState {
 
   private ensureAffordableFriendly(): void {
     const enc = this.encounters.current();
+    if (enc instanceof WizardTeachingPlaceholder) {
+      const teaching = this.buildTeachingEncounter();
+      this.encounters.replaceCurrent(
+        teaching ?? pickAffordableFriendlyReplacement(this.fuel),
+      );
+      return;
+    }
     if (!(enc instanceof FriendlyEncounter)) return;
     if (enc.rightCount() <= this.fuel) return;
     const replacement = pickAffordableFriendlyReplacement(this.fuel);
     this.encounters.replaceCurrent(replacement);
+  }
+
+  private buildTeachingEncounter(): TeachingEncounter | null {
+    const unknown = this.spellBook.unknownIds().map(getSpell);
+    if (unknown.length < 2) return null;
+    const affordable = shuffle(
+      unknown.filter((s) => signalFuelCost(s) <= this.fuel),
+    );
+    if (affordable.length === 0) return null;
+    const first = affordable[0];
+    const rest = shuffle(unknown.filter((s) => s.id !== first.id));
+    return new TeachingEncounter({ offered: [first, rest[0]] });
   }
 
   private applyReward(reward: FriendlyReward): void {
@@ -286,7 +370,10 @@ export class GameState {
   }
 
   private applyLighthouseDamage(amount: number): void {
-    this.health = Math.max(0, this.health - amount);
+    const reduction = Math.min(this.lighthouseDefence, amount);
+    this.lighthouseDefence -= reduction;
+    const dealt = amount - reduction;
+    this.health = Math.max(0, this.health - dealt);
   }
 
   private applySanityDamage(amount: number): void {
@@ -304,7 +391,22 @@ export class GameState {
         this.fuel += delta;
         return { id: spell.id, fuelDelta: delta };
       }
-      default:
+      case "calm": {
+        const before = this.sanity;
+        this.sanity = Math.min(INITIAL_SANITY, this.sanity + 2);
+        return { id: spell.id, sanityDelta: this.sanity - before };
+      }
+      case "shroud":
+        this.lighthouseDefence += 1;
+        return { id: spell.id };
+      case "confusion":
+        this.stunNextAttack = true;
+        return { id: spell.id };
+      case "burn":
+        this.burnActiveInEncounter = true;
+        return { id: spell.id };
+      case "extend":
+        this.extraActionsThisTurn += 1;
         return { id: spell.id };
     }
   }

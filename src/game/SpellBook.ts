@@ -4,6 +4,7 @@ import {
   SPELL_SEQUENCE_LENGTH,
   Spell,
   SpellId,
+  sequencesMatch,
 } from "./Spell";
 
 export class SpellBook {
@@ -22,6 +23,18 @@ export class SpellBook {
     return ALL_SPELLS.filter((s) => this.known.has(s.id)).map((s) => s.id);
   }
 
+  unknownIds(): readonly SpellId[] {
+    return ALL_SPELLS.filter((s) => !this.known.has(s.id)).map((s) => s.id);
+  }
+
+  knows(id: SpellId): boolean {
+    return this.known.has(id);
+  }
+
+  learn(id: SpellId): void {
+    this.known.add(id);
+  }
+
   // Slides in a new state; on match clears the buffer and returns the spell.
   recordAndMatch(state: LightState): Spell | null {
     this.history.push(state);
@@ -38,10 +51,4 @@ export class SpellBook {
     }
     return null;
   }
-}
-
-function sequencesMatch(a: readonly LightState[], b: readonly LightState[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
 }

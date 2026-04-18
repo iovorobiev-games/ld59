@@ -12,6 +12,7 @@ import {
   FriendlyEncounter,
   FriendlyEncounterConfig,
   UnfriendlyEncounter,
+  WizardTeachingPlaceholder,
 } from "./Encounter";
 
 export class EncounterManager {
@@ -200,9 +201,9 @@ const FRIENDLY_COUNT_IN_DECK = 3;
 
 export function buildDefaultDeck(): Encounter[] {
   const enemies: Encounter[] = ENEMY_POOL.map((make) => make());
-  const friendlies: Encounter[] = [];
+  const friendlies: Encounter[] = [new WizardTeachingPlaceholder()];
   const friendlyPool = shuffle(FRIENDLY_POOL);
-  for (let i = 0; i < FRIENDLY_COUNT_IN_DECK; i++) {
+  for (let i = 0; i < FRIENDLY_COUNT_IN_DECK - 1; i++) {
     friendlies.push(cloneFriendly(friendlyPool[i % friendlyPool.length]));
   }
   return shuffle([...enemies, ...friendlies]);
