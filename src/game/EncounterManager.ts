@@ -1,4 +1,11 @@
-import { DealDamageAbility } from "./Ability";
+import {
+  DealDamageAbility,
+  DealSanityDamageAbility,
+  DefendAbility,
+  FogAbility,
+  RitualAbility,
+  VampiricSanityAbility,
+} from "./Ability";
 import { Enemy } from "./Enemy";
 import {
   Encounter,
@@ -96,9 +103,10 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
   });
 }
 
-export function buildDefaultDeck(): Encounter[] {
-  return [
-    cloneFriendly(FRIENDLY_POOL[0]),
+type EnemyFactory = () => UnfriendlyEncounter;
+
+const ENEMY_POOL: EnemyFactory[] = [
+  () =>
     new UnfriendlyEncounter(
       new Enemy({
         name: "Tentacle",
@@ -110,7 +118,94 @@ export function buildDefaultDeck(): Encounter[] {
         ],
       }),
     ),
-  ];
+  () =>
+    new UnfriendlyEncounter(
+      new Enemy({
+        name: "Sea Ghosts",
+        maxHealth: 5,
+        abilities: [
+          new DealDamageAbility(1),
+          new DealDamageAbility(2),
+          new DealSanityDamageAbility(2),
+        ],
+      }),
+    ),
+  () =>
+    new UnfriendlyEncounter(
+      new Enemy({
+        name: "Wings of Horror",
+        maxHealth: 7,
+        abilities: [
+          new DealDamageAbility(1),
+          new DealDamageAbility(2),
+          new DealDamageAbility(3),
+          new VampiricSanityAbility(1),
+        ],
+      }),
+    ),
+  () =>
+    new UnfriendlyEncounter(
+      new Enemy({
+        name: "Sky Wraith",
+        maxHealth: 6,
+        abilities: [
+          new DefendAbility(2),
+          new DealDamageAbility(1),
+          new DealDamageAbility(2),
+        ],
+      }),
+    ),
+  () =>
+    new UnfriendlyEncounter(
+      new Enemy({
+        name: "Fog of Darkness",
+        maxHealth: 7,
+        abilities: [new DealDamageAbility(1), new FogAbility()],
+      }),
+    ),
+  () =>
+    new UnfriendlyEncounter(
+      new Enemy({
+        name: "Sirens",
+        maxHealth: 5,
+        abilities: [new DealDamageAbility(1), new RitualAbility()],
+      }),
+    ),
+  () =>
+    new UnfriendlyEncounter(
+      new Enemy({
+        name: "Ghost Ship",
+        maxHealth: 10,
+        abilities: [
+          new DefendAbility(2),
+          new DefendAbility(3),
+          new DealDamageAbility(2),
+          new DealDamageAbility(3),
+          new DealDamageAbility(4),
+        ],
+      }),
+    ),
+];
+
+function shuffle<T>(items: T[]): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const FRIENDLY_COUNT_IN_DECK = 3;
+
+export function buildDefaultDeck(): Encounter[] {
+  const enemies: Encounter[] = ENEMY_POOL.map((make) => make());
+  const friendlies: Encounter[] = [];
+  const friendlyPool = shuffle(FRIENDLY_POOL);
+  for (let i = 0; i < FRIENDLY_COUNT_IN_DECK; i++) {
+    friendlies.push(cloneFriendly(friendlyPool[i % friendlyPool.length]));
+  }
+  return shuffle([...enemies, ...friendlies]);
 }
 
 export function pickAffordableFriendlyReplacement(fuel: number): FriendlyEncounter {
