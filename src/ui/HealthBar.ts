@@ -61,4 +61,10 @@ export class HealthBar {
     this.fill.width = (this.opts.width - 4) * ratio;
     if (this.label) this.label.setText(`${current}/${max}`);
   }
+
+  setVisible(visible: boolean): void {
+    this.bg.setVisible(visible);
+    this.fill.setVisible(visible);
+    this.label?.setVisible(visible);
+  }
 }

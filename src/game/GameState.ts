@@ -1,6 +1,26 @@
 import { Card, CardSupplier } from "./Card";
+import {
+  Encounter,
+  EncounterKind,
+  FriendlyEncounter,
+  UnfriendlyEncounter,
+} from "./Encounter";
+import { EncounterManager, buildDefaultDeck } from "./EncounterManager";
 
 export type SwipeDirection = "left" | "right";
+
+export type GamePhase = "player" | "transitioning" | "gameOver" | "victory";
+
+export interface EncounterSnapshot {
+  kind: EncounterKind;
+  position: number;
+  total: number;
+  enemyName?: string;
+  enemyHealth?: number;
+  enemyMaxHealth?: number;
+  enemyPendingReduction?: number;
+  friendlyDescription?: string;
+}
 
 export interface GameStateSnapshot {
   sanity: number;
@@ -9,12 +29,36 @@ export interface GameStateSnapshot {
   lighthouseHealthMax: number;
   lightOn: boolean;
   topCard: Card;
-  isGameOver: boolean;
+  phase: GamePhase;
+  cardsThisTurn: number;
+  cardsPerTurn: number;
+  encounter: EncounterSnapshot | null;
+}
+
+export interface CardPlayEffect {
+  damageDealt?: number;
+  reductionAdded?: number;
+  friendlyProgress?: boolean;
+}
+
+export interface EnemyAttackEffect {
+  ability: string;
+  rawDamage: number;
+  blocked: number;
+  dealt: number;
+}
+
+export interface PlayCardResult {
+  card: CardPlayEffect;
+  enemyAttack?: EnemyAttackEffect;
+  encounterResolvedKind?: EncounterKind;
+  gameOutcome?: "lost" | "won";
 }
 
 export const INITIAL_SANITY = 10;
 export const INITIAL_FUEL = 10;
 export const INITIAL_LIGHTHOUSE_HEALTH = 10;
+export const CARDS_PER_TURN = 3;
 
 export class GameState {
   private sanity = INITIAL_SANITY;
@@ -23,9 +67,13 @@ export class GameState {
   private lightOn = true;
   private supplier = new CardSupplier();
   private current: Card;
+  private encounters: EncounterManager;
+  private cardsThisTurn = 0;
+  private phase: GamePhase = "player";
 
-  constructor() {
+  constructor(deck?: Encounter[]) {
     this.current = this.supplier.draw();
+    this.encounters = new EncounterManager(deck ?? buildDefaultDeck());
   }
 
   snapshot(): GameStateSnapshot {
@@ -36,12 +84,44 @@ export class GameState {
       lighthouseHealthMax: INITIAL_LIGHTHOUSE_HEALTH,
       lightOn: this.lightOn,
       topCard: this.current,
-      isGameOver: this.sanity <= 0,
+      phase: this.phase,
+      cardsThisTurn: this.cardsThisTurn,
+      cardsPerTurn: CARDS_PER_TURN,
+      encounter: this.snapshotEncounter(),
     };
   }
 
-  swipe(direction: SwipeDirection): GameStateSnapshot {
-    if (this.snapshot().isGameOver) return this.snapshot();
+  private snapshotEncounter(): EncounterSnapshot | null {
+    const enc = this.encounters.current();
+    if (!enc) return null;
+    const base = {
+      kind: enc.kind,
+      position: this.encounters.position(),
+      total: this.encounters.total(),
+    };
+    if (enc instanceof UnfriendlyEncounter) {
+      return {
+        ...base,
+        enemyName: enc.enemy.name,
+        enemyHealth: enc.enemy.health,
+        enemyMaxHealth: enc.enemy.maxHealth,
+        enemyPendingReduction: enc.enemy.pendingReduction,
+      };
+    }
+    if (enc instanceof FriendlyEncounter) {
+      return { ...base, friendlyDescription: enc.description };
+    }
+    return base;
+  }
+
+  canPlayCard(direction: SwipeDirection): boolean {
+    if (this.phase !== "player") return false;
+    if (direction === "right" && this.fuel <= 0) return false;
+    return true;
+  }
+
+  playCard(direction: SwipeDirection): PlayCardResult {
+    if (this.phase !== "player") return { card: {} };
 
     if (direction === "left") {
       this.sanity = Math.max(0, this.sanity - 1);
@@ -51,7 +131,64 @@ export class GameState {
       this.lightOn = true;
     }
 
+    const enc = this.encounters.current();
+    const card: CardPlayEffect = {};
+    if (enc instanceof UnfriendlyEncounter) {
+      if (direction === "right") {
+        enc.enemy.takeDamage(1);
+        card.damageDealt = 1;
+      } else {
+        enc.enemy.queueDamageReduction(1);
+        card.reductionAdded = 1;
+      }
+    } else if (enc instanceof FriendlyEncounter) {
+      enc.notePlayed();
+      card.friendlyProgress = true;
+    }
+
+    this.cardsThisTurn += 1;
     this.current = this.supplier.draw();
-    return this.snapshot();
+
+    const result: PlayCardResult = { card };
+
+    if (enc?.isResolved()) {
+      result.encounterResolvedKind = enc.kind;
+      this.cardsThisTurn = 0;
+      this.phase = "transitioning";
+      return result;
+    }
+
+    if (this.cardsThisTurn >= CARDS_PER_TURN) {
+      if (enc instanceof UnfriendlyEncounter) {
+        const ability = enc.enemy.chooseAbility();
+        const ev = ability.use({
+          source: enc.enemy,
+          target: { takeDamage: (amt) => this.applyLighthouseDamage(amt) },
+        });
+        result.enemyAttack = ev;
+      }
+      this.cardsThisTurn = 0;
+    }
+
+    if (this.health <= 0 || this.sanity <= 0) {
+      result.gameOutcome = "lost";
+      this.phase = "gameOver";
+    }
+
+    return result;
+  }
+
+  advanceEncounter(): void {
+    if (this.phase !== "transitioning") return;
+    const next = this.encounters.advance();
+    if (!next) {
+      this.phase = "victory";
+      return;
+    }
+    this.phase = "player";
+  }
+
+  private applyLighthouseDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
   }
 }
