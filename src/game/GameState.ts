@@ -15,6 +15,8 @@ import {
   buildDefaultDeck,
   pickAffordableFriendlyReplacement,
 } from "./EncounterManager";
+import { LightState, Spell, SpellId } from "./Spell";
+import { SpellBook } from "./SpellBook";
 
 export type { SwipeDirection };
 
@@ -47,6 +49,13 @@ export interface GameStateSnapshot {
   cardsThisTurn: number;
   cardsPerTurn: number;
   encounter: EncounterSnapshot | null;
+  spellSequence: readonly LightState[];
+}
+
+export interface SpellCastEffect {
+  id: SpellId;
+  fuelDelta?: number;
+  sanityDelta?: number;
 }
 
 export interface CardPlayEffect {
@@ -70,6 +79,7 @@ export interface PlayCardResult {
   friendlyMessageKind?: "success" | "failure";
   friendlyReward?: FriendlyReward;
   gameOutcome?: "lost" | "won";
+  spellCast?: SpellCastEffect;
 }
 
 export const INITIAL_SANITY = 10;
@@ -77,6 +87,11 @@ export const INITIAL_FUEL = 10;
 export const INITIAL_LIGHTHOUSE_HEALTH = 10;
 export const CARDS_PER_TURN = 3;
 export const BASE_LIGHT_FUEL_COST = 1;
+
+export interface GameStateOpts {
+  deck?: Encounter[];
+  knownSpellIds?: readonly SpellId[];
+}
 
 export class GameState {
   private sanity = INITIAL_SANITY;
@@ -89,10 +104,12 @@ export class GameState {
   private cardsThisTurn = 0;
   private phase: GamePhase = "player";
   private fuelSurcharge = 0;
+  private spellBook: SpellBook;
 
-  constructor(deck?: Encounter[]) {
+  constructor(opts: GameStateOpts = {}) {
     this.current = this.supplier.draw();
-    this.encounters = new EncounterManager(deck ?? buildDefaultDeck());
+    this.encounters = new EncounterManager(opts.deck ?? buildDefaultDeck());
+    this.spellBook = new SpellBook(opts.knownSpellIds ?? []);
     this.ensureAffordableFriendly();
     this.rollIntentIfUnfriendly();
   }
@@ -114,6 +131,7 @@ export class GameState {
       cardsThisTurn: this.cardsThisTurn,
       cardsPerTurn: CARDS_PER_TURN,
       encounter: this.snapshotEncounter(),
+      spellSequence: [...this.spellBook.sequence()],
     };
   }
 
@@ -172,6 +190,9 @@ export class GameState {
     const enc = this.encounters.current();
     const card: CardPlayEffect = {};
     const result: PlayCardResult = { card };
+
+    const matched = this.spellBook.recordAndMatch(this.lightOn ? "on" : "off");
+    if (matched) result.spellCast = this.applySpellEffect(matched);
 
     if (enc instanceof UnfriendlyEncounter) {
       if (direction === "right") {
@@ -274,5 +295,17 @@ export class GameState {
 
   private addFuelSurcharge(amount: number): void {
     this.fuelSurcharge += amount;
+  }
+
+  private applySpellEffect(spell: Spell): SpellCastEffect {
+    switch (spell.id) {
+      case "ignite": {
+        const delta = 3;
+        this.fuel += delta;
+        return { id: spell.id, fuelDelta: delta };
+      }
+      default:
+        return { id: spell.id };
+    }
   }
 }
