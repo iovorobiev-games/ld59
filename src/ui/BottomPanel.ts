@@ -125,6 +125,22 @@ export class BottomPanel {
     this.fuelText.setText(`${fuel}`);
   }
 
+  pulseFuel(scene: Phaser.Scene): void {
+    scene.tweens.killTweensOf(this.fuelText);
+    this.fuelText.setScale(1);
+    scene.tweens.add({
+      targets: this.fuelText,
+      scale: 1.5,
+      duration: 180,
+      ease: "Cubic.Out",
+      yoyo: true,
+    });
+  }
+
+  fuelAnchor(): { x: number; y: number } {
+    return { x: this.fuelText.x, y: this.fuelText.y };
+  }
+
   setSwipeHint(dragOffset: number, fuelAvailable: boolean): void {
     const left = Math.max(0, -dragOffset);
     const right = Math.max(0, dragOffset);

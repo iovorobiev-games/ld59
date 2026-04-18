@@ -6,15 +6,19 @@ import { CardView } from "../ui/CardView";
 import { EnemyView } from "../ui/EnemyView";
 import { FriendlyView } from "../ui/FriendlyView";
 import { EncounterOverlay } from "../ui/EncounterOverlay";
+import { SpellListView } from "../ui/SpellListView";
 import { TurnIndicator } from "../ui/TurnIndicator";
 import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { createText } from "../ui/fonts";
-import { PlayCardResult } from "../game/GameState";
+import { PlayCardResult, SpellCastEffect } from "../game/GameState";
+import { SpellId } from "../game/Spell";
 
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
 const FRIENDLY_HOLD_MS = 1500;
 const PANEL_HEIGHT = 474;
+const KNOWN_SPELLS: SpellId[] = ["ignite"];
+const SPELL_ANIM_MS = 900;
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
@@ -25,6 +29,7 @@ export class GameScene extends Phaser.Scene {
   private friendlyView!: FriendlyView;
   private overlay!: EncounterOverlay;
   private turnIndicator!: TurnIndicator;
+  private spellList!: SpellListView;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private prevLightOn = false;
 
@@ -39,7 +44,7 @@ export class GameScene extends Phaser.Scene {
 
     applyCrtPipeline(this);
 
-    this.state = new GameState();
+    this.state = new GameState({ knownSpellIds: KNOWN_SPELLS });
 
     this.lighthouse = new LighthouseView(this, width, panelTop, height);
     this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY, height / 2);
@@ -47,6 +52,8 @@ export class GameScene extends Phaser.Scene {
     this.panel = new BottomPanel(this, panelTop, width, PANEL_HEIGHT);
 
     this.turnIndicator = new TurnIndicator(this, width - 260, 40);
+
+    this.spellList = new SpellListView(this, height, KNOWN_SPELLS);
 
     this.dimOverlay = this.add
       .rectangle(0, 0, width, height, 0x000000, 0)
@@ -72,8 +79,10 @@ export class GameScene extends Phaser.Scene {
     );
 
     this.refreshViews();
-    this.prevLightOn = this.state.snapshot().lightOn;
-    this.card.show(this.state.snapshot().topCard);
+    const initSnap = this.state.snapshot();
+    this.prevLightOn = initSnap.lightOn;
+    this.spellList.setSequence(initSnap.spellSequence);
+    this.card.show(initSnap.topCard);
   }
 
   private handleCardPlayed(direction: "left" | "right"): void {
@@ -122,16 +131,81 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateTurnIndicator();
+    this.spellList.setSequence(snap.spellSequence);
 
-    if (result.enemyAttack) {
-      this.playEnemyAttackSequence(attackerName, () => {
-        this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
-        this.finishCardResolution(result, snap);
-      });
+    const continueResolution = () => {
+      if (result.enemyAttack) {
+        this.playEnemyAttackSequence(attackerName, () => {
+          this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
+          this.finishCardResolution(result, snap);
+        });
+        return;
+      }
+      this.finishCardResolution(result, snap);
+    };
+
+    if (result.spellCast) {
+      this.playSpellCastAnimation(result.spellCast, continueResolution);
       return;
     }
 
-    this.finishCardResolution(result, snap);
+    continueResolution();
+  }
+
+  private playSpellCastAnimation(cast: SpellCastEffect, onComplete: () => void): void {
+    this.spellList.flashSpell(cast.id, SPELL_ANIM_MS);
+
+    const banner = createText(
+      this,
+      this.scale.width / 2,
+      this.scale.height / 3,
+      `${cast.id.toUpperCase()}!`,
+      {
+        fontSize: "96px",
+        color: "#ffd27a",
+        stroke: "#000000",
+        strokeThickness: 8,
+      },
+    )
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(200);
+    this.tweens.add({
+      targets: banner,
+      alpha: 1,
+      duration: 180,
+      yoyo: true,
+      hold: 320,
+      onComplete: () => banner.destroy(),
+    });
+
+    if (cast.fuelDelta) this.playFuelGain(cast.fuelDelta);
+
+    this.time.delayedCall(SPELL_ANIM_MS, onComplete);
+  }
+
+  private playFuelGain(amount: number): void {
+    this.panel.pulseFuel(this);
+
+    const anchor = this.panel.fuelAnchor();
+    const floater = createText(this, anchor.x + 140, anchor.y + 20, `+${amount}`, {
+      fontSize: "112px",
+      color: "#fff6c0",
+      stroke: "#2a1a0a",
+      strokeThickness: 12,
+    })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(210);
+    this.tweens.add({
+      targets: floater,
+      y: anchor.y - 220,
+      alpha: { from: 1, to: 0 },
+      scale: { from: 0.7, to: 1.6 },
+      duration: SPELL_ANIM_MS,
+      ease: "Cubic.Out",
+      onComplete: () => floater.destroy(),
+    });
   }
 
   private finishCardResolution(result: PlayCardResult, snap: GameStateSnapshot): void {
