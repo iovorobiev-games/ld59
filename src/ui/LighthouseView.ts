@@ -88,6 +88,16 @@ export class LighthouseView {
       height: 36,
       fillColor: 0xff5252,
     });
+
+    this.scheduleFlicker();
+  }
+
+  private beams(): Phaser.GameObjects.Polygon[] {
+    return [this.leftBeam, this.rightBeam];
+  }
+
+  private baseAlpha(): number {
+    return this.lightOn ? BEAM_ALPHA_ON : 0;
   }
 
   setLight(on: boolean): void {
@@ -99,20 +109,43 @@ export class LighthouseView {
       this.body.setPostPipeline(SILHOUETTE_PIPELINE_KEY);
       this.body.setTint(LIGHT_OFF_TINT);
     }
-    const beams = [this.leftBeam, this.rightBeam];
+    const beams = this.beams();
     this.scene.tweens.killTweensOf(beams);
-    beams.forEach((b) => (b.fillAlpha = on ? BEAM_ALPHA_ON : 0));
+    beams.forEach((b) => (b.fillAlpha = this.baseAlpha()));
   }
 
   flashLight(): void {
-    const beams = [this.leftBeam, this.rightBeam];
+    const beams = this.beams();
     this.scene.tweens.killTweensOf(beams);
     beams.forEach((b) => (b.fillAlpha = 1));
     this.scene.tweens.add({
       targets: beams,
-      fillAlpha: this.lightOn ? BEAM_ALPHA_ON : 0,
+      fillAlpha: this.baseAlpha(),
       duration: 300,
       ease: "Cubic.Out",
+    });
+  }
+
+  private scheduleFlicker(): void {
+    const delay = Phaser.Math.Between(500, 2200);
+    this.scene.time.delayedCall(delay, () => {
+      this.scheduleFlicker();
+      if (!this.lightOn) return;
+      const beams = this.beams();
+      if (this.scene.tweens.getTweensOf(beams[0]).length > 0) return;
+      const dimAlpha = Phaser.Math.FloatBetween(0.25, 0.5);
+      this.scene.tweens.add({
+        targets: beams,
+        fillAlpha: dimAlpha,
+        duration: Phaser.Math.Between(50, 130),
+        yoyo: true,
+        ease: "Sine.InOut",
+        onComplete: () => {
+          if (this.lightOn) {
+            beams.forEach((b) => (b.fillAlpha = BEAM_ALPHA_ON));
+          }
+        },
+      });
     });
   }
 
