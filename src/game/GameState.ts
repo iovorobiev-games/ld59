@@ -30,6 +30,8 @@ import {
   signalFuelCost,
 } from "./Spell";
 import { SpellBook } from "./SpellBook";
+import { TutorialEncounter, TutorialPhase } from "./TutorialEncounter";
+import { CombatTutorial, CombatTutorialPhase } from "./CombatTutorial";
 
 export type { SwipeDirection };
 
@@ -54,6 +56,14 @@ export interface EncounterSnapshot {
   teachingFailureText?: string;
   storyText?: string;
   storyCharacter?: FriendlyCharacter;
+  tutorialPhase?: TutorialPhase;
+  tutorialText?: string;
+  tutorialWaitsForPlayer?: boolean;
+  tutorialShowRightHint?: boolean;
+  combatTutorialPhase?: CombatTutorialPhase;
+  combatTutorialText?: string;
+  combatTutorialWaitsForPlayer?: boolean;
+  combatTutorialExpectedDirection?: SwipeDirection;
 }
 
 export interface GameStateSnapshot {
@@ -141,6 +151,8 @@ export class GameState {
   private lighthouseDefence = 0;
   private extraActionsThisTurn = 0;
   private burnActiveInEncounter = false;
+  private combatTutorial: CombatTutorial | null = null;
+  private pendingCombatTutorial = false;
 
   constructor(opts: GameStateOpts = {}) {
     this.current = this.supplier.draw();
@@ -196,7 +208,7 @@ export class GameState {
       total: this.encounters.total(),
     };
     if (enc instanceof UnfriendlyEncounter) {
-      return {
+      const snap: EncounterSnapshot = {
         ...base,
         enemyName: enc.enemy.name,
         enemyHealth: enc.enemy.health,
@@ -204,6 +216,14 @@ export class GameState {
         enemyPendingReduction: enc.enemy.pendingReduction,
         enemyIntent: enc.enemy.intentDisplay ?? undefined,
       };
+      if (this.combatTutorial) {
+        snap.combatTutorialPhase = this.combatTutorial.currentPhase();
+        snap.combatTutorialText = this.combatTutorial.text();
+        snap.combatTutorialWaitsForPlayer = this.combatTutorial.waitsForPlayer();
+        const dir = this.combatTutorial.expectedDirection();
+        if (dir) snap.combatTutorialExpectedDirection = dir;
+      }
+      return snap;
     }
     if (enc instanceof FriendlyEncounter) {
       return {
@@ -232,6 +252,15 @@ export class GameState {
         storyCharacter: enc.character,
       };
     }
+    if (enc instanceof TutorialEncounter) {
+      return {
+        ...base,
+        tutorialPhase: enc.currentPhase(),
+        tutorialText: enc.text(),
+        tutorialWaitsForPlayer: enc.waitsForPlayer(),
+        tutorialShowRightHint: enc.showsRightHint(),
+      };
+    }
     return base;
   }
 
@@ -243,6 +272,18 @@ export class GameState {
     if (this.phase !== "player") return false;
     const enc = this.encounters.current();
     if (enc instanceof StoryEncounter) return true;
+    if (enc instanceof TutorialEncounter) {
+      if (!enc.waitsForPlayer()) return false;
+      if (direction === "right" && this.fuel < this.lightFuelCost) return false;
+      return true;
+    }
+    if (this.combatTutorial && enc instanceof UnfriendlyEncounter) {
+      const expected = this.combatTutorial.expectedDirection();
+      if (!expected) return false;
+      if (direction !== expected) return false;
+      if (direction === "right" && this.fuel < this.lightFuelCost) return false;
+      return true;
+    }
     if (direction === "right" && this.fuel < this.lightFuelCost) return false;
     return true;
   }
@@ -253,6 +294,12 @@ export class GameState {
     const currentEnc = this.encounters.current();
     if (currentEnc instanceof StoryEncounter) {
       return this.resolveStory(currentEnc);
+    }
+    if (currentEnc instanceof TutorialEncounter) {
+      return this.playTutorialCard(currentEnc, direction);
+    }
+    if (this.combatTutorial && currentEnc instanceof UnfriendlyEncounter) {
+      return this.playCombatTutorialCard(currentEnc, direction);
     }
 
     if (direction === "left") {
@@ -375,6 +422,14 @@ export class GameState {
     this.materializeIfDeferred();
     this.ensureAffordableFriendly();
     this.phase = "player";
+    const currentAfter = this.encounters.current();
+    if (
+      this.pendingCombatTutorial &&
+      currentAfter instanceof UnfriendlyEncounter
+    ) {
+      this.combatTutorial = new CombatTutorial();
+      this.pendingCombatTutorial = false;
+    }
     this.rollIntentIfUnfriendly();
   }
 
@@ -383,6 +438,81 @@ export class GameState {
     const enc = this.encounters.current();
     if (!(enc instanceof StoryEncounter)) return { card: {} };
     return this.resolveStory(enc);
+  }
+
+  private playTutorialCard(
+    enc: TutorialEncounter,
+    direction: SwipeDirection,
+  ): PlayCardResult {
+    if (direction === "left") {
+      this.sanity = Math.max(0, this.sanity - 1);
+      this.lightOn = false;
+    } else {
+      this.fuel = Math.max(0, this.fuel - this.lightFuelCost);
+      this.lightOn = true;
+    }
+    const outcome = enc.handleSwipe(direction);
+    this.current = this.supplier.draw();
+    const result: PlayCardResult = { card: {} };
+    if (outcome.castIgnite) {
+      const delta = 3;
+      this.fuel = Math.max(0, this.fuel + delta);
+      this.spellBook.learn("ignite");
+      result.spellCast = { id: "ignite", fuelDelta: delta };
+    }
+    if (enc.isResolved()) {
+      result.encounterResolvedKind = "tutorial";
+      this.phase = "transitioning";
+      this.pendingCombatTutorial = true;
+    }
+    return result;
+  }
+
+  tutorialAutoAdvance(): PlayCardResult {
+    const enc = this.encounters.current();
+    if (!(enc instanceof TutorialEncounter)) return { card: {} };
+    enc.autoAdvance();
+    const result: PlayCardResult = { card: {} };
+    if (enc.isResolved()) {
+      result.encounterResolvedKind = "tutorial";
+      this.phase = "transitioning";
+      this.pendingCombatTutorial = true;
+    }
+    return result;
+  }
+
+  private playCombatTutorialCard(
+    enc: UnfriendlyEncounter,
+    direction: SwipeDirection,
+  ): PlayCardResult {
+    if (direction === "left") {
+      this.sanity = Math.max(0, this.sanity - 1);
+      this.lightOn = false;
+    } else {
+      this.fuel = Math.max(0, this.fuel - this.lightFuelCost);
+      this.lightOn = true;
+    }
+    const card: CardPlayEffect = {};
+    const result: PlayCardResult = { card };
+    if (direction === "right") {
+      enc.enemy.takeDamage(1);
+      card.damageDealt = 1;
+    } else {
+      enc.enemy.queueDamageReduction(1);
+      card.reductionAdded = 1;
+    }
+    this.combatTutorial?.handleSwipe(direction);
+    this.current = this.supplier.draw();
+    return result;
+  }
+
+  combatTutorialAutoAdvance(): void {
+    if (!this.combatTutorial) return;
+    this.combatTutorial.autoAdvance();
+    if (this.combatTutorial.isDone()) {
+      this.combatTutorial = null;
+      this.cardsThisTurn = 0;
+    }
   }
 
   private resolveStory(enc: StoryEncounter): PlayCardResult {

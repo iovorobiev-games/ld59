@@ -15,6 +15,7 @@ import {
   WizardTeachingPlaceholder,
 } from "./Encounter";
 import { createEncounterById } from "./EncounterRegistry";
+import { TutorialEncounter } from "./TutorialEncounter";
 
 export class EncounterManager {
   private index = 0;
@@ -117,19 +118,22 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
 
 type EnemyFactory = () => UnfriendlyEncounter;
 
+function createTentacleEncounter(): UnfriendlyEncounter {
+  return new UnfriendlyEncounter(
+    new Enemy({
+      name: "Tentacle",
+      maxHealth: 5,
+      abilities: [
+        new DealDamageAbility(1),
+        new DealDamageAbility(2),
+        new DealDamageAbility(3),
+      ],
+    }),
+  );
+}
+
 const ENEMY_POOL: EnemyFactory[] = [
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Tentacle",
-        maxHealth: 5,
-        abilities: [
-          new DealDamageAbility(1),
-          new DealDamageAbility(2),
-          new DealDamageAbility(3),
-        ],
-      }),
-    ),
+  createTentacleEncounter,
   () =>
     new UnfriendlyEncounter(
       new Enemy({
@@ -211,8 +215,15 @@ function shuffle<T>(items: T[]): T[] {
 const ENEMY_COUNT_IN_DECK = 3;
 const FRIENDLY_COUNT_IN_DECK = ENEMY_COUNT_IN_DECK * 2;
 
-export function buildDefaultDeck(): Encounter[] {
-  const enemies: Encounter[] = shuffle(ENEMY_POOL)
+export interface BuildDeckOptions {
+  includeTutorial?: boolean;
+}
+
+export function buildDefaultDeck(opts: BuildDeckOptions = {}): Encounter[] {
+  const pool = opts.includeTutorial
+    ? ENEMY_POOL.filter((make) => make !== createTentacleEncounter)
+    : ENEMY_POOL;
+  const enemies: Encounter[] = shuffle(pool)
     .slice(0, ENEMY_COUNT_IN_DECK)
     .map((make) => make());
   const friendlies: Encounter[] = [new WizardTeachingPlaceholder()];
@@ -225,6 +236,11 @@ export function buildDefaultDeck(): Encounter[] {
   }
   const shuffled = shuffle([...enemies, ...friendlies]);
   const deck: Encounter[] = [];
+  if (opts.includeTutorial) {
+    deck.push(new TutorialEncounter());
+    deck.push(createTentacleEncounter());
+    deck.push(createLootFisher());
+  }
   for (const enc of shuffled) {
     deck.push(enc);
     if (enc instanceof UnfriendlyEncounter) deck.push(createLootFisher());

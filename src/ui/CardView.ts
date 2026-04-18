@@ -8,6 +8,9 @@ export type SwipePredicate = (direction: SwipeDirection) => boolean;
 const CARD_W = 248;
 const SWIPE_THRESHOLD = 160;
 const MAX_ROTATION = 0.35;
+const HINT_OFFSET_X = 60;
+const HINT_ROTATION = 0.08;
+const HINT_DURATION = 520;
 
 export class CardView {
   private scene: Phaser.Scene;
@@ -21,6 +24,7 @@ export class CardView {
   private locked = false;
   private onSwipe: SwipeCallback;
   private canSwipe: SwipePredicate;
+  private hintTween?: Phaser.Tweens.Tween;
 
   constructor(
     scene: Phaser.Scene,
@@ -57,8 +61,42 @@ export class CardView {
     this.container.setScale(1);
   }
 
+  startSwipeHint(direction: SwipeDirection): void {
+    if (this.hintTween) return;
+    this.container.setPosition(this.homeX, this.homeY);
+    this.container.setRotation(0);
+    const sign = direction === "right" ? 1 : -1;
+    this.hintTween = this.scene.tweens.add({
+      targets: this.container,
+      x: this.homeX + HINT_OFFSET_X * sign,
+      rotation: HINT_ROTATION * sign,
+      duration: HINT_DURATION,
+      ease: "Sine.InOut",
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  stopSwipeHint(): void {
+    if (!this.hintTween) return;
+    this.killHintTween();
+    this.scene.tweens.add({
+      targets: this.container,
+      x: this.homeX,
+      rotation: 0,
+      duration: 160,
+      ease: "Cubic.Out",
+    });
+  }
+
+  private killHintTween(): void {
+    this.hintTween?.stop();
+    this.hintTween = undefined;
+  }
+
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
     if (this.locked) return;
+    this.killHintTween();
     this.dragging = true;
     this.dragStartX = this.container.x;
     this.dragStartPointerX = pointer.x;

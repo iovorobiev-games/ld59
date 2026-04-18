@@ -12,14 +12,22 @@ import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { createText } from "../ui/fonts";
 import { PlayCardResult, SpellCastEffect } from "../game/GameState";
 import { SpellId } from "../game/Spell";
+import { buildDefaultDeck } from "../game/EncounterManager";
+import {
+  applyUrlResetFlag,
+  isTutorialCompleted,
+  markTutorialCompleted,
+} from "../game/tutorialStore";
 
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
 const FRIENDLY_HOLD_MS = 2200;
 const STORY_AUTO_RESOLVE_MS = 2500;
 const STORY_OVERLAY_HOLD_MS = 1400;
+const TUTORIAL_HOLD_MS = 2000;
+const TUTORIAL_FAREWELL_MS = 600;
 const PANEL_HEIGHT = 474;
-const KNOWN_SPELLS: SpellId[] = ["ignite"];
+const DEFAULT_KNOWN_SPELLS: SpellId[] = ["ignite"];
 const SPELL_ANIM_MS = 900;
 
 export class GameScene extends Phaser.Scene {
@@ -36,6 +44,7 @@ export class GameScene extends Phaser.Scene {
   private prevLightOn = false;
   private storyTimer?: Phaser.Time.TimerEvent;
   private storyClickHandler?: () => void;
+  private tutorialTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super({ key: "GameScene" });
@@ -48,7 +57,12 @@ export class GameScene extends Phaser.Scene {
 
     applyCrtPipeline(this);
 
-    this.state = new GameState({ knownSpellIds: KNOWN_SPELLS });
+    applyUrlResetFlag();
+    const runTutorial = !isTutorialCompleted();
+    this.state = new GameState({
+      knownSpellIds: runTutorial ? [] : DEFAULT_KNOWN_SPELLS,
+      deck: buildDefaultDeck({ includeTutorial: runTutorial }),
+    });
 
     this.lighthouse = new LighthouseView(this, width, panelTop, height);
     this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY, height / 2);
@@ -57,7 +71,7 @@ export class GameScene extends Phaser.Scene {
 
     this.turnIndicator = new TurnIndicator(this, width - 260, 40);
 
-    this.spellList = new SpellListView(this, height, KNOWN_SPELLS);
+    this.spellList = new SpellListView(this, height, this.state.snapshot().knownSpellIds);
 
     this.dimOverlay = this.add
       .rectangle(0, 0, width, height, 0x000000, 0)
@@ -94,6 +108,10 @@ export class GameScene extends Phaser.Scene {
     const preSnap = this.state.snapshot();
     if (preSnap.encounter?.kind === "story") {
       this.handleStoryAction();
+      return;
+    }
+    if (preSnap.encounter?.kind === "tutorial") {
+      this.handleTutorialCard(direction);
       return;
     }
     const preAttackHealth = preSnap.lighthouseHealth;
@@ -225,6 +243,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.card.show(snap.topCard);
+    if (snap.encounter?.kind === "unfriendly" && snap.encounter.combatTutorialPhase) {
+      this.renderCombatTutorial();
+    }
   }
 
   private handleStoryAction(): void {
@@ -245,6 +266,131 @@ export class GameScene extends Phaser.Scene {
     }
     this.updateTurnIndicator();
     this.finishCardResolution(result, snap);
+  }
+
+  private handleTutorialCard(direction: "left" | "right"): void {
+    this.cancelTutorialTimer();
+    this.card.stopSwipeHint();
+
+    const result = this.state.playCard(direction);
+    const snap = this.state.snapshot();
+
+    this.lighthouse.setLight(snap.lightOn);
+    this.enemyView.setLight(snap.lightOn);
+    if (direction === "right") this.lighthouse.flashLight();
+    if (snap.lightOn && !this.prevLightOn) {
+      this.cameras.main.shake(220, 0.004);
+    }
+    this.prevLightOn = snap.lightOn;
+    this.panel.setResources(snap.sanity, snap.fuel);
+    this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
+    if (direction === "left") this.flashDim();
+    this.updateTurnIndicator();
+    this.spellList.setKnown(snap.knownSpellIds);
+    this.spellList.setSequence(snap.spellSequence);
+
+    const continueResolve = () => {
+      if (result.encounterResolvedKind === "tutorial") {
+        this.completeTutorial();
+        return;
+      }
+      this.card.show(snap.topCard);
+      this.renderTutorial();
+    };
+
+    if (result.spellCast) {
+      this.playSpellCastAnimation(result.spellCast, continueResolve);
+      return;
+    }
+    continueResolve();
+  }
+
+  private renderTutorial(): void {
+    const snap = this.state.snapshot();
+    const enc = snap.encounter;
+    if (enc?.kind !== "tutorial") return;
+
+    this.cancelTutorialTimer();
+    const text = enc.tutorialText ?? "";
+    const waits = enc.tutorialWaitsForPlayer ?? false;
+    const hint = enc.tutorialShowRightHint ?? false;
+
+    if (!hint) this.card.stopSwipeHint();
+
+    this.friendlyView.showTutorial(text, () => {
+      if (waits) {
+        if (hint) this.card.startSwipeHint("right");
+        return;
+      }
+      this.tutorialTimer = this.time.delayedCall(TUTORIAL_HOLD_MS, () =>
+        this.advanceTutorial(),
+      );
+    });
+  }
+
+  private advanceTutorial(): void {
+    const result = this.state.tutorialAutoAdvance();
+    if (result.encounterResolvedKind === "tutorial") {
+      this.completeTutorial();
+      return;
+    }
+    this.renderTutorial();
+  }
+
+  private completeTutorial(): void {
+    markTutorialCompleted();
+    this.cancelTutorialTimer();
+    this.card.stopSwipeHint();
+    this.time.delayedCall(TUTORIAL_FAREWELL_MS, () => {
+      this.friendlyView.hide(() => this.startNextEncounter());
+    });
+  }
+
+  private cancelTutorialTimer(): void {
+    this.tutorialTimer?.remove(false);
+    this.tutorialTimer = undefined;
+  }
+
+  private renderCombatTutorial(): void {
+    const snap = this.state.snapshot();
+    const enc = snap.encounter;
+    if (enc?.kind !== "unfriendly") return;
+    const phase = enc.combatTutorialPhase;
+    if (!phase) {
+      this.cancelTutorialTimer();
+      this.card.stopSwipeHint();
+      this.friendlyView.hide();
+      return;
+    }
+
+    this.cancelTutorialTimer();
+    const text = enc.combatTutorialText ?? "";
+    const waits = enc.combatTutorialWaitsForPlayer ?? false;
+    const expectedDir = enc.combatTutorialExpectedDirection;
+    this.card.stopSwipeHint();
+
+    this.friendlyView.showTutorial(text, () => {
+      if (waits) {
+        if (expectedDir) this.card.startSwipeHint(expectedDir);
+        return;
+      }
+      this.tutorialTimer = this.time.delayedCall(TUTORIAL_HOLD_MS, () =>
+        this.advanceCombatTutorial(),
+      );
+    });
+  }
+
+  private advanceCombatTutorial(): void {
+    this.state.combatTutorialAutoAdvance();
+    const snap = this.state.snapshot();
+    this.panel.setResources(snap.sanity, snap.fuel);
+    this.updateTurnIndicator();
+    if (snap.encounter?.kind === "unfriendly" && !snap.encounter.combatTutorialPhase) {
+      this.card.stopSwipeHint();
+      this.friendlyView.hide();
+      return;
+    }
+    this.renderCombatTutorial();
   }
 
   private armStoryResolution(): void {
@@ -341,10 +487,16 @@ export class GameScene extends Phaser.Scene {
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
     this.panel.setResources(snap.sanity, snap.fuel);
     this.disarmStoryResolution();
+    const hasTutorial =
+      snap.encounter?.kind === "tutorial" ||
+      !!snap.encounter?.combatTutorialPhase;
+    if (!hasTutorial) {
+      this.cancelTutorialTimer();
+      this.card.stopSwipeHint();
+    }
 
     const enc = snap.encounter;
     if (enc?.kind === "unfriendly") {
-      this.friendlyView.hide();
       this.enemyView.show(
         enc.enemyName ?? "Abomination",
         enc.enemyHealth ?? 0,
@@ -353,6 +505,11 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.setPendingReduction(enc.enemyPendingReduction ?? 0);
       this.enemyView.setIntent(enc.enemyIntent ?? null);
       this.panel.setEffectHints("-1 dmg to monster", "Deal 1 dmg");
+      if (enc.combatTutorialPhase) {
+        this.renderCombatTutorial();
+      } else {
+        this.friendlyView.hide();
+      }
     } else if (enc?.kind === "friendly") {
       this.enemyView.hide();
       this.showFriendly(enc);
@@ -368,6 +525,10 @@ export class GameScene extends Phaser.Scene {
       );
       this.panel.setEffectHints("", "");
       this.armStoryResolution();
+    } else if (enc?.kind === "tutorial") {
+      this.enemyView.hide();
+      this.panel.setEffectHints("", "");
+      this.renderTutorial();
     } else {
       this.enemyView.hide();
       this.friendlyView.hide();

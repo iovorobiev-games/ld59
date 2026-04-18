@@ -126,7 +126,15 @@ export class FriendlyView {
     this.typewriter.play(text);
   }
 
-  private render(character: FriendlyCharacter, fullText: string): void {
+  showTutorial(text: string, onReady?: () => void): void {
+    this.render("wizard", text, onReady);
+  }
+
+  private render(
+    character: FriendlyCharacter,
+    fullText: string,
+    onReady?: () => void,
+  ): void {
     if (character !== this.shownCharacter) {
       this.shownCharacter = character;
       this.character.setTexture(CHARACTER_TEXTURE[character]);
@@ -134,12 +142,17 @@ export class FriendlyView {
       this.character.setVisible(true);
       this.typewriter.setImmediate("");
       this.lastBody = fullText;
-      this.slideIn(() => this.knock(() => this.typewriter.play(fullText)));
+      this.slideIn(() =>
+        this.knock(() => this.typewriter.play(fullText, onReady)),
+      );
       return;
     }
-    if (fullText === this.lastBody) return;
+    if (fullText === this.lastBody) {
+      onReady?.();
+      return;
+    }
     this.lastBody = fullText;
-    this.typewriter.play(fullText);
+    this.typewriter.play(fullText, onReady);
   }
 
   hide(onComplete?: () => void): void {
