@@ -41,8 +41,8 @@ Game resolution is 1920x1080 with `Phaser.Scale.FIT` auto-centering. Assets live
 - **`game/`** — Pure logic, no Phaser imports.
   - `GameState` — owns sanity / fuel / lighthouse health / lightOn flag, the card supplier, the `EncounterManager`, turn counter (3 cards/turn), and `phase` (`player` | `transitioning` | `gameOver` | `victory`). `playCard(dir)` applies card effect, resolves encounter, triggers enemy attack after 3 cards, and returns a `PlayCardResult` event. `advanceEncounter()` moves to the next encounter after the scene finishes the overlay. Left swipe = Dark (queues −1 next-attack dmg on enemy); right swipe = Light (1 dmg to enemy).
   - `Card` / `CardSupplier` — infinite deck supplier.
-  - `Ability` — `Ability` interface, `DealDamageAbility(damage)`, `PlayerTarget` (anything with `takeDamage(amount)`). New enemy powers plug in by implementing `Ability`.
-  - `Enemy` — HP, list of `Ability`, queued damage reduction (cleared after one attack), `chooseAbility()` picks one at random.
+  - `Ability` — `Ability` interface (`name`, `intent: AbilityIntent { icon, label, value? }`, `use`), `DealDamageAbility(damage)`, `PlayerTarget` (anything with `takeDamage(amount)`). New enemy powers plug in by implementing `Ability` — the `intent` lets the UI telegraph them without special-casing.
+  - `Enemy` — HP, list of `Ability`, queued damage reduction (cleared after one attack). `rollIntent()` picks and locks the next ability (STS-style telegraph); `useIntent(ctx)` fires it and clears. `intent` getter returns the locked `Ability | null`.
   - `Encounter` — `UnfriendlyEncounter(enemy)` resolves when enemy dies; `FriendlyEncounter(description)` resolves after 1 card.
   - `EncounterManager` — deck of encounters (built by `buildDefaultDeck()` — 6 encounters mixing friendly and unfriendly). Beating the deck = victory.
 - **`ui/`** — Phaser-dependent views, each owning a single visual concern (SRP).
@@ -50,7 +50,7 @@ Game resolution is 1920x1080 with `Phaser.Scale.FIT` auto-centering. Assets live
   - `BottomPanel` — bottom half (dark left / light right). Shows sanity & fuel; `setSwipeHint(offset)` highlights the side being swiped toward.
   - `CardView` — draggable card. Calls back with `"left"` / `"right"` when a swipe crosses threshold.
   - `HealthBar` — reusable bar with optional inline numeric label and visibility toggle.
-  - `EnemyView` — placeholder rectangle + HP bar + pending-reduction label, positioned left of the lighthouse. Accepts an `EnemyVisual` config so future sprites plug in without changing the class.
+  - `EnemyView` — placeholder rectangle + HP bar + pending-reduction label + intent badge (icon + value, above name), positioned left of the lighthouse. Accepts an `EnemyVisual` config so future sprites plug in without changing the class. `setIntent(AbilityIntent | null)` updates the telegraph.
   - `FriendlyView` — glow + card silhouette + description for friendly encounters.
   - `EncounterOverlay` — dim rect + centered message (e.g. "ABOMINATION EXPELLED"); fades in/out and fires a callback on completion. Cards stay visible but are locked via `phase === 'transitioning'`.
   - `TurnIndicator` — top-right HUD showing "Encounter X / Y" and cards-remaining (or "Play any 1 card to pass" for friendly).

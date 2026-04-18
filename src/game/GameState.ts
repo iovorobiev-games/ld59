@@ -1,3 +1,4 @@
+import { AbilityIntent } from "./Ability";
 import { Card, CardSupplier } from "./Card";
 import {
   Encounter,
@@ -19,6 +20,7 @@ export interface EncounterSnapshot {
   enemyHealth?: number;
   enemyMaxHealth?: number;
   enemyPendingReduction?: number;
+  enemyIntent?: AbilityIntent;
   friendlyDescription?: string;
 }
 
@@ -74,6 +76,12 @@ export class GameState {
   constructor(deck?: Encounter[]) {
     this.current = this.supplier.draw();
     this.encounters = new EncounterManager(deck ?? buildDefaultDeck());
+    this.rollIntentIfUnfriendly();
+  }
+
+  private rollIntentIfUnfriendly(): void {
+    const enc = this.encounters.current();
+    if (enc instanceof UnfriendlyEncounter) enc.enemy.rollIntent();
   }
 
   snapshot(): GameStateSnapshot {
@@ -106,6 +114,7 @@ export class GameState {
         enemyHealth: enc.enemy.health,
         enemyMaxHealth: enc.enemy.maxHealth,
         enemyPendingReduction: enc.enemy.pendingReduction,
+        enemyIntent: enc.enemy.intent?.intent,
       };
     }
     if (enc instanceof FriendlyEncounter) {
@@ -160,12 +169,12 @@ export class GameState {
 
     if (this.cardsThisTurn >= CARDS_PER_TURN) {
       if (enc instanceof UnfriendlyEncounter) {
-        const ability = enc.enemy.chooseAbility();
-        const ev = ability.use({
+        const ev = enc.enemy.useIntent({
           source: enc.enemy,
           target: { takeDamage: (amt) => this.applyLighthouseDamage(amt) },
         });
         result.enemyAttack = ev;
+        if (!enc.enemy.isDead()) enc.enemy.rollIntent();
       }
       this.cardsThisTurn = 0;
     }
@@ -186,6 +195,7 @@ export class GameState {
       return;
     }
     this.phase = "player";
+    this.rollIntentIfUnfriendly();
   }
 
   private applyLighthouseDamage(amount: number): void {

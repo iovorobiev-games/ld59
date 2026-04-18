@@ -1,4 +1,4 @@
-import { Ability } from "./Ability";
+import { Ability, AbilityContext, AbilityEvent } from "./Ability";
 
 export interface EnemyConfig {
   name: string;
@@ -12,6 +12,7 @@ export class Enemy {
   private currentHealth: number;
   private readonly abilities: Ability[];
   private damageReductionNext = 0;
+  private nextAbility: Ability | null = null;
 
   constructor(config: EnemyConfig) {
     this.name = config.name;
@@ -46,8 +47,19 @@ export class Enemy {
     return this.damageReductionNext;
   }
 
-  chooseAbility(): Ability {
+  get intent(): Ability | null {
+    return this.nextAbility;
+  }
+
+  rollIntent(): Ability {
     const idx = Math.floor(Math.random() * this.abilities.length);
-    return this.abilities[idx];
+    this.nextAbility = this.abilities[idx];
+    return this.nextAbility;
+  }
+
+  useIntent(ctx: AbilityContext): AbilityEvent {
+    const ability = this.nextAbility ?? this.rollIntent();
+    this.nextAbility = null;
+    return ability.use(ctx);
   }
 }
