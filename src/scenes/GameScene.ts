@@ -9,6 +9,7 @@ import { EncounterOverlay } from "../ui/EncounterOverlay";
 import { SpellListView } from "../ui/SpellListView";
 import { TurnIndicator } from "../ui/TurnIndicator";
 import { applyCrtPipeline } from "../pipelines/CrtPipeline";
+import { Sfx } from "../audio/Sfx";
 import { createText } from "../ui/fonts";
 import { PlayCardResult, SpellCastEffect } from "../game/GameState";
 import { SpellId } from "../game/Spell";
@@ -56,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     const groundY = panelTop - 30;
 
     applyCrtPipeline(this);
+    Sfx.ensureAmbient(this);
 
     applyUrlResetFlag();
     const runTutorial = !isTutorialCompleted();
