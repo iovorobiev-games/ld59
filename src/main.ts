@@ -3,12 +3,13 @@ import { loadGameFont } from "./ui/fonts";
 import { SplashScene } from "./scenes/SplashScene";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
+import { GameOverScene } from "./scenes/GameOverScene";
 
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.WEBGL,
+  type: Phaser.AUTO,
   parent: "game",
   backgroundColor: "#000000",
-  scene: [SplashScene, BootScene, GameScene],
+  scene: [SplashScene, BootScene, GameScene, GameOverScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
