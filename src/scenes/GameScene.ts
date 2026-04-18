@@ -11,6 +11,7 @@ import { TurnIndicator } from "../ui/TurnIndicator";
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
 const FRIENDLY_HOLD_MS = 1500;
+const PANEL_HEIGHT = 474;
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
@@ -28,28 +29,28 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    const halfH = height / 2;
-    const groundY = halfH - 30;
+    const panelTop = height - PANEL_HEIGHT;
+    const groundY = panelTop - 30;
 
     this.state = new GameState();
 
-    this.lighthouse = new LighthouseView(this, width, halfH);
-    this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY);
+    this.lighthouse = new LighthouseView(this, width, panelTop, height);
+    this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY, height / 2);
     this.friendlyView = new FriendlyView(this, ENEMY_ANCHOR_X, groundY);
-    this.panel = new BottomPanel(this, halfH, width, halfH);
+    this.panel = new BottomPanel(this, panelTop, width, PANEL_HEIGHT);
 
     this.turnIndicator = new TurnIndicator(this, width - 260, 40);
     this.overlay = new EncounterOverlay(this, {
       dimX: 0,
       dimY: 0,
       dimWidth: width,
-      dimHeight: halfH,
+      dimHeight: panelTop,
       textX: width / 2,
-      textY: height / 2,
+      textY: panelTop / 2,
     });
 
     const cardHomeX = width / 2;
-    const cardHomeY = halfH + halfH / 2;
+    const cardHomeY = panelTop + PANEL_HEIGHT / 2;
     this.card = new CardView(
       this,
       cardHomeX,
@@ -67,6 +68,7 @@ export class GameScene extends Phaser.Scene {
     const snap = this.state.snapshot();
 
     this.lighthouse.setLight(snap.lightOn);
+    this.enemyView.setLight(snap.lightOn);
     if (direction === "right") this.lighthouse.flashLight();
     this.panel.setResources(snap.sanity, snap.fuel);
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
@@ -132,6 +134,7 @@ export class GameScene extends Phaser.Scene {
   private refreshViews(): void {
     const snap = this.state.snapshot();
     this.lighthouse.setLight(snap.lightOn);
+    this.enemyView.setLight(snap.lightOn);
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
     this.panel.setResources(snap.sanity, snap.fuel);
 

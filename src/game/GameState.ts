@@ -78,7 +78,7 @@ export class GameState {
   private sanity = INITIAL_SANITY;
   private fuel = INITIAL_FUEL;
   private health = INITIAL_LIGHTHOUSE_HEALTH;
-  private lightOn = true;
+  private lightOn = false;
   private supplier = new CardSupplier();
   private current: Card;
   private encounters: EncounterManager;

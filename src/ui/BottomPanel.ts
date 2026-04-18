@@ -1,16 +1,15 @@
 import Phaser from "phaser";
 import { createText } from "./fonts";
 
-const DARK_COLOR = 0x0e0e1a;
-const LIGHT_COLOR = 0xf5e6b8;
 const SANITY_HIGHLIGHT = 0x6f5fff;
 const FUEL_HIGHLIGHT = 0xffb030;
 const BLOCKED_HIGHLIGHT = 0x8a1a1a;
 const HINT_FADE_PX = 30;
 const HINT_FULL_PX = 140;
 
-const CARD_HALF_WIDTH = 160;
+const CARD_HALF_WIDTH = 124;
 const HINT_PAD = 30;
+const PANEL_TOP_TRANSPARENT = 44;
 
 export class BottomPanel {
   private sanityText: Phaser.GameObjects.Text;
@@ -32,17 +31,16 @@ export class BottomPanel {
     this.cardCenterX = halfW;
 
     scene.add
-      .rectangle(0, panelTopY, halfW, panelHeight, DARK_COLOR)
-      .setOrigin(0);
-    scene.add
-      .rectangle(halfW, panelTopY, halfW, panelHeight, LIGHT_COLOR)
-      .setOrigin(0);
+      .image(0, panelTopY + panelHeight, "dark_light_bg")
+      .setOrigin(0, 1);
 
+    const highlightTop = panelTopY + PANEL_TOP_TRANSPARENT;
+    const highlightHeight = panelHeight - PANEL_TOP_TRANSPARENT;
     this.sanityHighlight = scene.add
-      .rectangle(0, panelTopY, halfW, panelHeight, SANITY_HIGHLIGHT, 0)
+      .rectangle(0, highlightTop, halfW, highlightHeight, SANITY_HIGHLIGHT, 0)
       .setOrigin(0);
     this.fuelHighlight = scene.add
-      .rectangle(halfW, panelTopY, halfW, panelHeight, FUEL_HIGHLIGHT, 0)
+      .rectangle(halfW, highlightTop, halfW, highlightHeight, FUEL_HIGHLIGHT, 0)
       .setOrigin(0);
 
     createText(scene, halfW / 2, panelTopY + 60, "SANITY", {

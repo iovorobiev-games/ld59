@@ -6,7 +6,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Load assets from public/sprites/ here.
+    this.load.image("card", "sprites/card.png");
+    this.load.image("dark_light_bg", "sprites/dark_light_bg.png");
+    this.load.image("lighthouse", "sprites/lighthouse.png");
+    this.load.image("rock", "sprites/rock.png");
+    this.load.image("tentacle", "sprites/tentacle.png");
   }
 
   create(): void {
