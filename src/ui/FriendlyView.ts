@@ -30,6 +30,13 @@ const KNOCK_COUNT = 3;
 
 const TYPEWRITER_CHAR_MS = 35;
 
+// Fisher has no dedicated sprite yet — reuse bandit art until one is added.
+const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
+  wizard: "wizard",
+  bandit: "bandit",
+  fisher: "bandit",
+};
+
 const TEXT_TOP = CUTOUT_BOTTOM + 60;
 const TEXT_BOTTOM = DOOR_HEIGHT - 60;
 const TEXT_CENTER_Y = (TEXT_TOP + TEXT_BOTTOM) / 2;
@@ -122,7 +129,7 @@ export class FriendlyView {
   private render(character: FriendlyCharacter, fullText: string): void {
     if (character !== this.shownCharacter) {
       this.shownCharacter = character;
-      this.character.setTexture(character);
+      this.character.setTexture(CHARACTER_TEXTURE[character]);
       this.character.x = this.offscreenLocalX;
       this.character.setVisible(true);
       this.typewriter.setImmediate("");

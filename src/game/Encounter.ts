@@ -27,9 +27,21 @@ export interface FriendlyReward {
   hp?: number;
 }
 
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+export function describeFriendlyReward(reward: FriendlyReward): string {
+  const parts: string[] = [];
+  if (reward.fuel) parts.push(`${signed(reward.fuel)} Fuel`);
+  if (reward.sanity) parts.push(`${signed(reward.sanity)} Sanity`);
+  if (reward.hp) parts.push(`${signed(reward.hp)} HP`);
+  return parts.join("\n");
+}
+
 export type FriendlyOutcome = "progress" | "success" | "fail";
 
-export type FriendlyCharacter = "wizard" | "bandit";
+export type FriendlyCharacter = "wizard" | "bandit" | "fisher";
 
 export interface FriendlyEncounterConfig {
   sequence: SwipeDirection[];
@@ -42,6 +54,8 @@ export interface FriendlyEncounterConfig {
   shakeOnFinalStep?: boolean;
   nextOnSuccess?: EncounterId;
   nextOnFailure?: EncounterId;
+  acceptAny?: boolean;
+  failureReward?: FriendlyReward;
 }
 
 export interface FriendlyStepResult {
@@ -62,6 +76,8 @@ export class FriendlyEncounter implements Encounter {
   readonly shakeOnFinalStep: boolean;
   readonly nextOnSuccess?: EncounterId;
   readonly nextOnFailure?: EncounterId;
+  readonly acceptAny: boolean;
+  readonly failureReward: FriendlyReward;
   private progress = 0;
   private failed = false;
 
@@ -76,16 +92,20 @@ export class FriendlyEncounter implements Encounter {
     this.shakeOnFinalStep = config.shakeOnFinalStep ?? false;
     this.nextOnSuccess = config.nextOnSuccess;
     this.nextOnFailure = config.nextOnFailure;
+    this.acceptAny = config.acceptAny ?? false;
+    this.failureReward = config.failureReward ?? {};
   }
 
   notePlayed(direction: SwipeDirection): FriendlyStepResult {
     if (this.isResolved()) {
       return { outcome: this.failed ? "fail" : "success" };
     }
-    const expected = this.sequence[this.progress];
-    if (direction !== expected) {
-      this.failed = true;
-      return { outcome: "fail" };
+    if (!this.acceptAny) {
+      const expected = this.sequence[this.progress];
+      if (direction !== expected) {
+        this.failed = true;
+        return { outcome: "fail" };
+      }
     }
     const stepIdx = this.progress;
     this.progress += 1;
@@ -116,11 +136,11 @@ export class FriendlyEncounter implements Encounter {
   }
 
   describeReward(): string {
-    const parts: string[] = [];
-    if (this.reward.fuel) parts.push(`+${this.reward.fuel} Fuel`);
-    if (this.reward.sanity) parts.push(`+${this.reward.sanity} Sanity`);
-    if (this.reward.hp) parts.push(`+${this.reward.hp} HP`);
-    return parts.join("\n");
+    return describeFriendlyReward(this.reward);
+  }
+
+  describeFailureReward(): string {
+    return describeFriendlyReward(this.failureReward);
   }
 
   rightCount(): number {

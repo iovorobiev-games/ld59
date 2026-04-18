@@ -64,46 +64,39 @@ export class EncounterManager {
 
 const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
   {
-    sequence: ["left", "left", "left"],
-    reward: { fuel: 3, hp: 2 },
-    successText: "Bless this light.",
-    failureText: "Ok then.",
-    character: "wizard",
-    greeting: "Dim your lamp, keeper.",
+    sequence: ["left"],
+    reward: { sanity: 2 },
+    successText: "Cheers, mate.\nHere's some moonshine for you.",
+    failureText: "Fish won't bite with that glare...",
+    character: "fisher",
+    greeting:
+      "You mind dim the light for a while?\nFish is skittish these days.",
   },
   {
-    sequence: ["left", "left", "left"],
-    reward: { fuel: 5 },
-    successText: "Take the oil, keeper.",
-    failureText: "Suit yourself.",
-    character: "bandit",
-    greeting: "Douse the light.\nI've got oil to spare.",
-  },
-  {
-    sequence: ["right", "right", "right"],
-    reward: { sanity: 5 },
-    successText: "The song steadies you.",
-    failureText: "No means no...",
-    character: "wizard",
-    greeting: "Shine, keeper.\nSing with me.",
-  },
-  {
-    sequence: ["left", "left", "right"],
-    reward: { fuel: 3, sanity: 3 },
-    successText: "A fair trade.",
-    failureText: "Not the dance I asked for.",
-    character: "bandit",
-    greeting: "Off, off,\nthen ON.",
-  },
-  {
-    sequence: ["left", "right", "right"],
-    reward: { fuel: 3, sanity: 3 },
-    successText: "A fair trade.",
-    failureText: "Not the dance I asked for.",
-    character: "wizard",
-    greeting: "Off, then\nON, ON.",
+    sequence: ["right", "right"],
+    reward: { sanity: 4 },
+    failureReward: { sanity: -1 },
+    successText: "Ah, there she is.\nCheers, mate!",
+    failureText: "Just try to ask me\nsomething in future...",
+    character: "fisher",
+    greeting:
+      "My granddaughter is lost in the woods.\nPlease keep the lights on\nso she can find the way back.",
   },
 ];
+
+function createLootFisher(): FriendlyEncounter {
+  const fuel = 2 + Math.floor(Math.random() * 3);
+  return new FriendlyEncounter({
+    sequence: ["left"],
+    acceptAny: true,
+    reward: { fuel },
+    successText: "Take your pick, keeper.",
+    failureText: "",
+    character: "fisher",
+    greeting:
+      "Here are the parts of\nthe abomination you slain.\nMaybe you can burn it for light.",
+  });
+}
 
 function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
   return new FriendlyEncounter({
@@ -113,6 +106,12 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
     failureText: cfg.failureText,
     character: cfg.character,
     greeting: cfg.greeting,
+    progressTexts: cfg.progressTexts ? [...cfg.progressTexts] : undefined,
+    shakeOnFinalStep: cfg.shakeOnFinalStep,
+    nextOnSuccess: cfg.nextOnSuccess,
+    nextOnFailure: cfg.nextOnFailure,
+    acceptAny: cfg.acceptAny,
+    failureReward: cfg.failureReward ? { ...cfg.failureReward } : undefined,
   });
 }
 
@@ -224,7 +223,13 @@ export function buildDefaultDeck(): Encounter[] {
   for (let i = 0; i < extra; i++) {
     friendlies.push(cloneFriendly(friendlyPool[i % friendlyPool.length]));
   }
-  return shuffle([...enemies, ...friendlies]);
+  const shuffled = shuffle([...enemies, ...friendlies]);
+  const deck: Encounter[] = [];
+  for (const enc of shuffled) {
+    deck.push(enc);
+    if (enc instanceof UnfriendlyEncounter) deck.push(createLootFisher());
+  }
+  return deck;
 }
 
 export function pickAffordableFriendlyReplacement(fuel: number): FriendlyEncounter {

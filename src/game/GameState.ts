@@ -289,8 +289,10 @@ export class GameState {
         result.friendlyMessageKind = "success";
         result.friendlyReward = { ...enc.reward };
       } else if (step.outcome === "fail") {
+        this.applyReward(enc.failureReward);
         result.friendlyMessage = enc.failureText;
         result.friendlyMessageKind = "failure";
+        result.friendlyReward = { ...enc.failureReward };
       }
     } else if (enc instanceof TeachingEncounter) {
       const status = enc.notePlayed(this.lightOn ? "on" : "off");
@@ -446,12 +448,18 @@ export class GameState {
   }
 
   private applyReward(reward: FriendlyReward): void {
-    if (reward.fuel) this.fuel += reward.fuel;
+    if (reward.fuel) this.fuel = Math.max(0, this.fuel + reward.fuel);
     if (reward.sanity) {
-      this.sanity = Math.min(INITIAL_SANITY, this.sanity + reward.sanity);
+      this.sanity = Math.max(
+        0,
+        Math.min(INITIAL_SANITY, this.sanity + reward.sanity),
+      );
     }
     if (reward.hp) {
-      this.health = Math.min(INITIAL_LIGHTHOUSE_HEALTH, this.health + reward.hp);
+      this.health = Math.max(
+        0,
+        Math.min(INITIAL_LIGHTHOUSE_HEALTH, this.health + reward.hp),
+      );
     }
   }
 
