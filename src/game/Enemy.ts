@@ -1,4 +1,4 @@
-import { Ability, AbilityContext, AbilityEvent } from "./Ability";
+import { Ability, AbilityContext, AbilityEvent, AbilityIntent } from "./Ability";
 
 export interface EnemyConfig {
   name: string;
@@ -13,6 +13,7 @@ export class Enemy {
   private readonly abilities: Ability[];
   private damageReductionNext = 0;
   private nextAbility: Ability | null = null;
+  private damageBonusAmount = 0;
 
   constructor(config: EnemyConfig) {
     this.name = config.name;
@@ -25,12 +26,24 @@ export class Enemy {
     return this.currentHealth;
   }
 
+  get damageBonus(): number {
+    return this.damageBonusAmount;
+  }
+
   isDead(): boolean {
     return this.currentHealth <= 0;
   }
 
   takeDamage(amount: number): void {
     this.currentHealth = Math.max(0, this.currentHealth - amount);
+  }
+
+  heal(amount: number): void {
+    this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
+  }
+
+  addDamageBonus(amount: number): void {
+    this.damageBonusAmount += amount;
   }
 
   queueDamageReduction(amount: number): void {
@@ -49,6 +62,10 @@ export class Enemy {
 
   get intent(): Ability | null {
     return this.nextAbility;
+  }
+
+  get intentDisplay(): AbilityIntent | null {
+    return this.nextAbility ? this.nextAbility.getIntent(this) : null;
   }
 
   rollIntent(): Ability {

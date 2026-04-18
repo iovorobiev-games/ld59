@@ -76,6 +76,7 @@ export const INITIAL_SANITY = 10;
 export const INITIAL_FUEL = 10;
 export const INITIAL_LIGHTHOUSE_HEALTH = 10;
 export const CARDS_PER_TURN = 3;
+export const BASE_LIGHT_FUEL_COST = 1;
 
 export class GameState {
   private sanity = INITIAL_SANITY;
@@ -87,6 +88,7 @@ export class GameState {
   private encounters: EncounterManager;
   private cardsThisTurn = 0;
   private phase: GamePhase = "player";
+  private fuelSurcharge = 0;
 
   constructor(deck?: Encounter[]) {
     this.current = this.supplier.draw();
@@ -130,7 +132,7 @@ export class GameState {
         enemyHealth: enc.enemy.health,
         enemyMaxHealth: enc.enemy.maxHealth,
         enemyPendingReduction: enc.enemy.pendingReduction,
-        enemyIntent: enc.enemy.intent?.intent,
+        enemyIntent: enc.enemy.intentDisplay ?? undefined,
       };
     }
     if (enc instanceof FriendlyEncounter) {
@@ -146,9 +148,13 @@ export class GameState {
     return base;
   }
 
+  private get lightFuelCost(): number {
+    return BASE_LIGHT_FUEL_COST + this.fuelSurcharge;
+  }
+
   canPlayCard(direction: SwipeDirection): boolean {
     if (this.phase !== "player") return false;
-    if (direction === "right" && this.fuel <= 0) return false;
+    if (direction === "right" && this.fuel < this.lightFuelCost) return false;
     return true;
   }
 
@@ -159,7 +165,7 @@ export class GameState {
       this.sanity = Math.max(0, this.sanity - 1);
       this.lightOn = false;
     } else {
-      this.fuel = Math.max(0, this.fuel - 1);
+      this.fuel = Math.max(0, this.fuel - this.lightFuelCost);
       this.lightOn = true;
     }
 
@@ -207,7 +213,11 @@ export class GameState {
       if (enc instanceof UnfriendlyEncounter) {
         const ev = enc.enemy.useIntent({
           source: enc.enemy,
-          target: { takeDamage: (amt) => this.applyLighthouseDamage(amt) },
+          target: {
+            takeDamage: (amt) => this.applyLighthouseDamage(amt),
+            takeSanityDamage: (amt) => this.applySanityDamage(amt),
+            applyFuelSurcharge: (amt) => this.addFuelSurcharge(amt),
+          },
         });
         result.enemyAttack = ev;
         if (!enc.enemy.isDead()) enc.enemy.rollIntent();
@@ -225,6 +235,7 @@ export class GameState {
 
   advanceEncounter(): void {
     if (this.phase !== "transitioning") return;
+    this.fuelSurcharge = 0;
     const next = this.encounters.advance();
     if (!next) {
       this.phase = "victory";
@@ -255,5 +266,13 @@ export class GameState {
 
   private applyLighthouseDamage(amount: number): void {
     this.health = Math.max(0, this.health - amount);
+  }
+
+  private applySanityDamage(amount: number): void {
+    this.sanity = Math.max(0, this.sanity - amount);
+  }
+
+  private addFuelSurcharge(amount: number): void {
+    this.fuelSurcharge += amount;
   }
 }

@@ -28,6 +28,9 @@ export class EnemyView {
   private healthBarWorldY: number;
   private oscillateTween?: Phaser.Tweens.Tween;
   private arrivalTween?: Phaser.Tweens.Tween;
+  private tooltipBg: Phaser.GameObjects.Rectangle;
+  private tooltipText: Phaser.GameObjects.Text;
+  private tooltipDescription: string | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -80,6 +83,26 @@ export class EnemyView {
       height: 26,
       fillColor: 0xff5252,
     });
+
+    this.tooltipBg = scene.add
+      .rectangle(0, 0, 10, 10, 0x10070c, 0.95)
+      .setStrokeStyle(2, 0xffb347)
+      .setOrigin(0.5, 0)
+      .setVisible(false)
+      .setDepth(300);
+    this.tooltipText = createText(scene, 0, 0, "", {
+      fontSize: "26px",
+      color: "#ffe7b5",
+      align: "center",
+      wordWrap: { width: 520 },
+    })
+      .setOrigin(0.5, 0)
+      .setVisible(false)
+      .setDepth(301);
+
+    this.intentBg.setInteractive({ useHandCursor: true });
+    this.intentBg.on("pointerover", () => this.showTooltip());
+    this.intentBg.on("pointerout", () => this.hideTooltip());
 
     this.setIntent(null);
     this.hide();
@@ -151,6 +174,8 @@ export class EnemyView {
     if (!intent) {
       this.intentBg.setVisible(false);
       this.intentLabel.setVisible(false);
+      this.tooltipDescription = null;
+      this.hideTooltip();
       return;
     }
     const text =
@@ -159,8 +184,37 @@ export class EnemyView {
     const padding = 28;
     const width = Math.max(120, this.intentLabel.width + padding);
     this.intentBg.setSize(width, 52);
+    this.intentBg.input?.hitArea.setSize(width, 52);
     this.intentBg.setVisible(true);
     this.intentLabel.setVisible(true);
+    this.tooltipDescription = intent.description;
+    if (this.tooltipBg.visible) this.refreshTooltip();
+  }
+
+  private showTooltip(): void {
+    if (!this.tooltipDescription) return;
+    this.refreshTooltip();
+    this.tooltipBg.setVisible(true);
+    this.tooltipText.setVisible(true);
+  }
+
+  private hideTooltip(): void {
+    this.tooltipBg.setVisible(false);
+    this.tooltipText.setVisible(false);
+  }
+
+  private refreshTooltip(): void {
+    if (!this.tooltipDescription) return;
+    this.tooltipText.setText(this.tooltipDescription);
+    const padX = 28;
+    const padY = 20;
+    const width = this.tooltipText.width + padX;
+    const height = this.tooltipText.height + padY;
+    const worldX = this.healthBarWorldX;
+    const worldY = this.healthBarWorldY + 50;
+    this.tooltipBg.setPosition(worldX, worldY);
+    this.tooltipBg.setSize(width, height);
+    this.tooltipText.setPosition(worldX, worldY + padY / 2);
   }
 
   flashHit(amount = 1): void {
@@ -281,6 +335,7 @@ export class EnemyView {
     if (!v) {
       this.intentBg.setVisible(false);
       this.intentLabel.setVisible(false);
+      this.hideTooltip();
     }
   }
 }
