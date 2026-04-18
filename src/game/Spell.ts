@@ -17,6 +17,29 @@ export interface Spell {
 
 export const SPELL_SEQUENCE_LENGTH = 3;
 
+export function sequencesMatch(
+  a: readonly LightState[],
+  b: readonly LightState[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+export function formatSignal(seq: readonly LightState[]): string {
+  return seq.map((s) => (s === "on" ? "ON" : "OFF")).join(" ");
+}
+
+export function signalFuelCost(spell: Spell): number {
+  return spell.sequence.filter((s) => s === "on").length;
+}
+
+export function getSpell(id: SpellId): Spell {
+  const found = ALL_SPELLS.find((s) => s.id === id);
+  if (!found) throw new Error(`Unknown spell id: ${id}`);
+  return found;
+}
+
 export const ALL_SPELLS: readonly Spell[] = [
   {
     id: "confusion",

@@ -8,14 +8,23 @@ import {
   FriendlyOutcome,
   FriendlyReward,
   SwipeDirection,
+  TeachingEncounter,
+  TeachingStatus,
   UnfriendlyEncounter,
+  WizardTeachingPlaceholder,
 } from "./Encounter";
 import {
   EncounterManager,
   buildDefaultDeck,
   pickAffordableFriendlyReplacement,
 } from "./EncounterManager";
-import { LightState, Spell, SpellId } from "./Spell";
+import {
+  LightState,
+  Spell,
+  SpellId,
+  getSpell,
+  signalFuelCost,
+} from "./Spell";
 import { SpellBook } from "./SpellBook";
 
 export type { SwipeDirection };
@@ -36,6 +45,9 @@ export interface EncounterSnapshot {
   friendlyRewardText?: string;
   friendlyCharacter?: FriendlyCharacter;
   friendlyGreeting?: string;
+  teachingOffered?: readonly [Spell, Spell];
+  teachingStatus?: TeachingStatus;
+  teachingFailureText?: string;
 }
 
 export interface GameStateSnapshot {
@@ -91,6 +103,15 @@ export const BASE_LIGHT_FUEL_COST = 1;
 export interface GameStateOpts {
   deck?: Encounter[];
   knownSpellIds?: readonly SpellId[];
+}
+
+function shuffle<T>(items: readonly T[]): T[] {
+  const pool = [...items];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool;
 }
 
 export class GameState {
@@ -163,6 +184,16 @@ export class GameState {
         friendlyGreeting: enc.greeting,
       };
     }
+    if (enc instanceof TeachingEncounter) {
+      return {
+        ...base,
+        friendlyCharacter: enc.character,
+        friendlyGreeting: enc.greeting,
+        teachingOffered: enc.offered,
+        teachingStatus: enc.currentStatus(),
+        teachingFailureText: enc.failureText,
+      };
+    }
     return base;
   }
 
@@ -213,6 +244,15 @@ export class GameState {
       } else if (outcome === "fail") {
         result.friendlyMessage = enc.failureText;
         result.friendlyMessageKind = "failure";
+      }
+    } else if (enc instanceof TeachingEncounter) {
+      const status = enc.notePlayed(this.lightOn ? "on" : "off");
+      card.friendlyOutcome = status === "learned" ? "success" : "progress";
+      if (status === "learned") {
+        const learned = enc.getLearned()!;
+        this.spellBook.learn(learned.id);
+        result.friendlyMessage = `${learned.name} learned!`;
+        result.friendlyMessageKind = "success";
       }
     }
 
@@ -269,10 +309,29 @@ export class GameState {
 
   private ensureAffordableFriendly(): void {
     const enc = this.encounters.current();
+    if (enc instanceof WizardTeachingPlaceholder) {
+      const teaching = this.buildTeachingEncounter();
+      this.encounters.replaceCurrent(
+        teaching ?? pickAffordableFriendlyReplacement(this.fuel),
+      );
+      return;
+    }
     if (!(enc instanceof FriendlyEncounter)) return;
     if (enc.rightCount() <= this.fuel) return;
     const replacement = pickAffordableFriendlyReplacement(this.fuel);
     this.encounters.replaceCurrent(replacement);
+  }
+
+  private buildTeachingEncounter(): TeachingEncounter | null {
+    const unknown = this.spellBook.unknownIds().map(getSpell);
+    if (unknown.length < 2) return null;
+    const affordable = shuffle(
+      unknown.filter((s) => signalFuelCost(s) <= this.fuel),
+    );
+    if (affordable.length === 0) return null;
+    const first = affordable[0];
+    const rest = shuffle(unknown.filter((s) => s.id !== first.id));
+    return new TeachingEncounter({ offered: [first, rest[0]] });
   }
 
   private applyReward(reward: FriendlyReward): void {

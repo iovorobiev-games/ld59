@@ -121,13 +121,7 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.setPendingReduction(snap.encounter.enemyPendingReduction ?? 0);
       this.enemyView.setIntent(snap.encounter.enemyIntent ?? null);
     } else if (snap.encounter?.kind === "friendly") {
-      this.friendlyView.show(
-        snap.encounter.friendlySequence ?? [],
-        snap.encounter.friendlyProgress ?? 0,
-        snap.encounter.friendlyRewardText ?? "",
-        snap.encounter.friendlyCharacter ?? "wizard",
-        snap.encounter.friendlyGreeting ?? "",
-      );
+      this.showFriendly(snap.encounter);
     }
 
     this.updateTurnIndicator();
@@ -318,13 +312,7 @@ export class GameScene extends Phaser.Scene {
       this.panel.setEffectHints("-1 dmg to monster", "Deal 1 dmg");
     } else if (enc?.kind === "friendly") {
       this.enemyView.hide();
-      this.friendlyView.show(
-        enc.friendlySequence ?? [],
-        enc.friendlyProgress ?? 0,
-        enc.friendlyRewardText ?? "",
-        enc.friendlyCharacter ?? "wizard",
-        enc.friendlyGreeting ?? "",
-      );
+      this.showFriendly(enc);
       this.panel.setEffectHints("", "");
     } else {
       this.enemyView.hide();
@@ -333,6 +321,26 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateTurnIndicator();
+  }
+
+  private showFriendly(enc: NonNullable<GameStateSnapshot["encounter"]>): void {
+    if (enc.teachingOffered) {
+      this.friendlyView.showTeaching(
+        enc.friendlyCharacter ?? "wizard",
+        enc.friendlyGreeting ?? "",
+        enc.teachingOffered,
+        enc.teachingStatus ?? "idle",
+        enc.teachingFailureText ?? "",
+      );
+      return;
+    }
+    this.friendlyView.show(
+      enc.friendlySequence ?? [],
+      enc.friendlyProgress ?? 0,
+      enc.friendlyRewardText ?? "",
+      enc.friendlyCharacter ?? "wizard",
+      enc.friendlyGreeting ?? "",
+    );
   }
 
   private updateTurnIndicator(): void {

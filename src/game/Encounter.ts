@@ -1,4 +1,5 @@
 import { Enemy } from "./Enemy";
+import { LightState, SPELL_SEQUENCE_LENGTH, Spell, sequencesMatch } from "./Spell";
 
 export type EncounterKind = "friendly" | "unfriendly";
 export type SwipeDirection = "left" | "right";
@@ -94,5 +95,77 @@ export class FriendlyEncounter implements Encounter {
 
   rightCount(): number {
     return this.sequence.filter((d) => d === "right").length;
+  }
+}
+
+export type TeachingStatus = "idle" | "mistake" | "learned";
+
+export interface TeachingEncounterConfig {
+  offered: readonly [Spell, Spell];
+  greeting?: string;
+  failureText?: string;
+}
+
+const DEFAULT_TEACHING_GREETING =
+  "A blinding abyss offered new spells.\nSend me a signal and I shall cast one.";
+const DEFAULT_TEACHING_FAILURE =
+  "Nah — signal for spell A or signal for spell B.";
+
+export class TeachingEncounter implements Encounter {
+  readonly kind = "friendly" as const;
+  readonly character: FriendlyCharacter = "wizard";
+  readonly offered: readonly [Spell, Spell];
+  readonly greeting: string;
+  readonly failureText: string;
+  private buffer: LightState[] = [];
+  private learnedSpell: Spell | null = null;
+  private status: TeachingStatus = "idle";
+
+  constructor(config: TeachingEncounterConfig) {
+    this.offered = config.offered;
+    this.greeting = config.greeting ?? DEFAULT_TEACHING_GREETING;
+    this.failureText = config.failureText ?? DEFAULT_TEACHING_FAILURE;
+  }
+
+  notePlayed(state: LightState): TeachingStatus {
+    this.buffer.push(state);
+    if (this.buffer.length > SPELL_SEQUENCE_LENGTH) {
+      this.buffer.splice(0, this.buffer.length - SPELL_SEQUENCE_LENGTH);
+    }
+    if (this.buffer.length < SPELL_SEQUENCE_LENGTH) {
+      this.status = "idle";
+      return "idle";
+    }
+    for (const spell of this.offered) {
+      if (sequencesMatch(this.buffer, spell.sequence)) {
+        this.learnedSpell = spell;
+        this.status = "learned";
+        return "learned";
+      }
+    }
+    this.status = "mistake";
+    return "mistake";
+  }
+
+  currentStatus(): TeachingStatus {
+    return this.status;
+  }
+
+  getLearned(): Spell | null {
+    return this.learnedSpell;
+  }
+
+  isResolved(): boolean {
+    return this.learnedSpell !== null;
+  }
+}
+
+// Placeholder inserted at deck build time. GameState replaces it with a real
+// TeachingEncounter generated from the player's current unknown spells & fuel,
+// or swaps it for a regular FriendlyEncounter if teaching isn't feasible.
+export class WizardTeachingPlaceholder implements Encounter {
+  readonly kind = "friendly" as const;
+  isResolved(): boolean {
+    return false;
   }
 }

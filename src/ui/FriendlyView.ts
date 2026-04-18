@@ -1,5 +1,10 @@
 import Phaser from "phaser";
-import { FriendlyCharacter, SwipeDirection } from "../game/Encounter";
+import {
+  FriendlyCharacter,
+  SwipeDirection,
+  TeachingStatus,
+} from "../game/Encounter";
+import { Spell, formatSignal } from "../game/Spell";
 import { createText } from "./fonts";
 import { TypewriterText } from "./TypewriterText";
 
@@ -38,6 +43,7 @@ export class FriendlyView {
   private slideTween?: Phaser.Tweens.Tween;
   private knockTween?: Phaser.Tweens.Tween;
   private shownCharacter: FriendlyCharacter | null = null;
+  private lastBody = "";
   private readonly cutoutLocalX: number;
   private readonly cutoutLocalY: number;
   private readonly offscreenLocalX: number;
@@ -92,22 +98,41 @@ export class FriendlyView {
     character: FriendlyCharacter = "wizard",
     greeting = "",
   ): void {
-    const fullText = this.buildText(greeting, sequence, progress, rewardText);
+    this.render(character, this.buildText(greeting, sequence, progress, rewardText));
+  }
 
+  showTeaching(
+    character: FriendlyCharacter,
+    greeting: string,
+    offered: readonly [Spell, Spell],
+    status: TeachingStatus,
+    failureText: string,
+  ): void {
+    this.render(
+      character,
+      this.buildTeachingText(greeting, offered, status, failureText),
+    );
+  }
+
+  private render(character: FriendlyCharacter, fullText: string): void {
     if (character !== this.shownCharacter) {
       this.shownCharacter = character;
       this.character.setTexture(character);
       this.character.setVisible(true);
       this.typewriter.setImmediate("");
+      this.lastBody = fullText;
       this.slideIn(() => this.knock(() => this.typewriter.play(fullText)));
-    } else {
-      this.typewriter.setImmediate(fullText);
+      return;
     }
+    if (fullText === this.lastBody) return;
+    this.lastBody = fullText;
+    this.typewriter.play(fullText);
   }
 
   hide(): void {
     if (this.shownCharacter === null) return;
     this.shownCharacter = null;
+    this.lastBody = "";
     this.typewriter.setImmediate("");
     this.cancelKnock();
     this.slideOut();
@@ -125,6 +150,19 @@ export class FriendlyView {
       rewardText,
     ].filter((s) => s && s.length > 0);
     return lines.join("\n");
+  }
+
+  private buildTeachingText(
+    greeting: string,
+    offered: readonly [Spell, Spell],
+    status: TeachingStatus,
+    failureText: string,
+  ): string {
+    const header = status === "mistake" ? failureText : greeting;
+    const offers = offered
+      .map((s) => `${s.name}: ${formatSignal(s.sequence)}`)
+      .join("\n");
+    return `${header}\n${offers}`;
   }
 
   private slideIn(onComplete: () => void): void {
