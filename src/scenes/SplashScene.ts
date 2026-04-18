@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { createText } from "../ui/fonts";
+import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 
 export class SplashScene extends Phaser.Scene {
   constructor() {
@@ -10,6 +11,7 @@ export class SplashScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor("#000000");
+    applyCrtPipeline(this);
 
     const title = createText(this, width / 2, height / 2, "IOVO Games", {
       fontSize: "220px",

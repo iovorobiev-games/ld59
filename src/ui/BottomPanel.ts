@@ -18,6 +18,8 @@ export class BottomPanel {
   private fuelHighlight: Phaser.GameObjects.Rectangle;
   private leftImpact: Phaser.GameObjects.Text;
   private rightImpact: Phaser.GameObjects.Text;
+  private leftEffect: Phaser.GameObjects.Text;
+  private rightEffect: Phaser.GameObjects.Text;
   private cardCenterX: number;
 
   constructor(
@@ -80,7 +82,23 @@ export class BottomPanel {
     ).setOrigin(0.5);
 
     // Impact hints sit just beside the card and follow it during drag.
-    this.leftImpact = createText(scene, 0, cardCenterY, "-1 Sanity", {
+    this.leftImpact = createText(scene, 0, cardCenterY + 40, "-1 Sanity", {
+      fontSize: "32px",
+      color: "#b0a6ff",
+    })
+      .setOrigin(1, 0.5)
+      .setAlpha(0)
+      .setDepth(10);
+
+    this.rightImpact = createText(scene, 0, cardCenterY + 40, "-1 Fuel", {
+      fontSize: "32px",
+      color: "#4a2a08",
+    })
+      .setOrigin(0, 0.5)
+      .setAlpha(0)
+      .setDepth(10);
+
+    this.leftEffect = createText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
       color: "#b0a6ff",
     })
@@ -88,13 +106,18 @@ export class BottomPanel {
       .setAlpha(0)
       .setDepth(10);
 
-    this.rightImpact = createText(scene, 0, cardCenterY, "-1 Fuel", {
+    this.rightEffect = createText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
       color: "#4a2a08",
     })
       .setOrigin(0, 0.5)
       .setAlpha(0)
       .setDepth(10);
+  }
+
+  setEffectHints(leftText: string, rightText: string): void {
+    this.leftEffect.setText(leftText);
+    this.rightEffect.setText(rightText);
   }
 
   setResources(sanity: number, fuel: number): void {
@@ -110,21 +133,29 @@ export class BottomPanel {
 
     this.sanityHighlight.fillAlpha = leftAlpha * 0.45;
     this.leftImpact.setAlpha(leftAlpha);
-    this.leftImpact.x =
+    const leftX =
       this.cardCenterX - CARD_HALF_WIDTH - HINT_PAD + Math.min(0, dragOffset);
+    this.leftImpact.x = leftX;
+    this.leftEffect.x = leftX;
+    this.leftEffect.setAlpha(this.leftEffect.text ? leftAlpha : 0);
 
     if (fuelAvailable) {
       this.fuelHighlight.fillColor = FUEL_HIGHLIGHT;
       this.fuelHighlight.fillAlpha = rightAlpha * 0.45;
       this.rightImpact.setText("-1 Fuel").setColor("#4a2a08");
+      this.rightEffect.setColor("#4a2a08");
     } else {
       this.fuelHighlight.fillColor = BLOCKED_HIGHLIGHT;
       this.fuelHighlight.fillAlpha = rightAlpha * 0.55;
       this.rightImpact.setText("No fuel left!").setColor("#ff5252");
+      this.rightEffect.setColor("#ff5252");
     }
     this.rightImpact.setAlpha(rightAlpha);
-    this.rightImpact.x =
+    const rightX =
       this.cardCenterX + CARD_HALF_WIDTH + HINT_PAD + Math.max(0, dragOffset);
+    this.rightImpact.x = rightX;
+    this.rightEffect.x = rightX;
+    this.rightEffect.setAlpha(fuelAvailable && this.rightEffect.text ? rightAlpha : 0);
   }
 }
 

@@ -35,7 +35,8 @@ Game resolution is 1920x1080 with `Phaser.Scale.FIT` auto-centering. Assets live
 
 ### Source layout (`src/`)
 
-- **`main.ts`** — Entry point. Creates the Phaser game with the scene list. Uses `Phaser.AUTO` so headless puppeteer (no WebGL) falls back to canvas — keep it on AUTO unless you have a reason not to.
+- **`main.ts`** — Entry point. Creates the Phaser game with the scene list. Uses `Phaser.AUTO` so headless puppeteer (no WebGL) falls back to canvas — keep it on AUTO unless you have a reason not to. Registers post-FX pipelines in `callbacks.postBoot` so they're available before scenes call `create()`.
+- **`pipelines/`** — WebGL post-FX pipelines. `SilhouettePipeline` (per-object outline) and `CrtPipeline` (scene-wide scanlines + barrel + chromatic aberration + noise, attached via `applyCrtPipeline(scene)` in each visual scene's `create()`). Both are no-ops on the canvas fallback.
 - **`scenes/`** — Phaser scenes:
   - `SplashScene` → `BootScene` → `GameScene` (gameplay) → `GameOverScene` (on sanity 0, with Try Again button that restarts `GameScene`).
 - **`game/`** — Pure logic, no Phaser imports.

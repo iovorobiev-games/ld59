@@ -21,6 +21,8 @@ export class LighthouseView {
   private rightBeam: Phaser.GameObjects.Polygon;
   private healthBar: HealthBar;
   private lightOn = true;
+  private impactX: number;
+  private impactY: number;
 
   constructor(
     scene: Phaser.Scene,
@@ -45,9 +47,12 @@ export class LighthouseView {
       .image(lighthouseX, groundY, "lighthouse")
       .setOrigin(0.5, 1);
 
-    const lampX = lighthouseX;
-    const lampY = groundY + LAMP_OFFSET_Y;
-    const beamSpread = 90;
+    this.impactX = lighthouseX - LIGHTHOUSE_WIDTH / 2 - 40;
+    this.impactY = groundY - LIGHTHOUSE_HEIGHT / 2;
+
+    const lampX = lighthouseX - 8;
+    const lampY = groundY + LAMP_OFFSET_Y - 8;
+    const beamSpread = 200;
     const beamColor = 0xfff2a8;
     this.leftBeam = scene.add
       .polygon(
@@ -113,5 +118,24 @@ export class LighthouseView {
 
   setHealth(current: number, max: number): void {
     this.healthBar.set(current, max);
+  }
+
+  getImpactPoint(): { x: number; y: number } {
+    return { x: this.impactX, y: this.impactY };
+  }
+
+  playHit(): void {
+    this.scene.tweens.killTweensOf(this.body);
+    const baseX = this.body.x;
+    this.body.setTintFill(0xff8080);
+    this.scene.time.delayedCall(150, () => this.body.clearTint());
+    this.scene.tweens.add({
+      targets: this.body,
+      x: baseX + 20,
+      duration: 60,
+      yoyo: true,
+      repeat: 2,
+      onComplete: () => (this.body.x = baseX),
+    });
   }
 }
