@@ -35,10 +35,20 @@ Game resolution is 1920x1080 with `Phaser.Scale.FIT` auto-centering. Assets live
 
 ### Source layout (`src/`)
 
-- **`main.ts`** — Entry point. Creates the Phaser game with the scene list.
-- **`scenes/`** — Phaser scenes. `BootScene` preloads assets and hands off to `GameScene`, which owns gameplay logic.
+- **`main.ts`** — Entry point. Creates the Phaser game with the scene list. Uses `Phaser.AUTO` so headless puppeteer (no WebGL) falls back to canvas — keep it on AUTO unless you have a reason not to.
+- **`scenes/`** — Phaser scenes:
+  - `SplashScene` → `BootScene` → `GameScene` (gameplay) → `GameOverScene` (on sanity 0, with Try Again button that restarts `GameScene`).
+- **`game/`** — Pure logic, no Phaser imports.
+  - `GameState` — owns sanity / fuel / lighthouse health / lightOn flag and the deck. `swipe(dir)` mutates state and returns a snapshot. UI never reads internals directly.
+  - `Card` / `CardSupplier` — infinite deck supplier.
+- **`ui/`** — Phaser-dependent views, each owning a single visual concern (SRP).
+  - `LighthouseView` — top half. Lighthouse + sky + health bar; `setLight(on)` toggles silhouette mode; `flashLight()` strobes the cone.
+  - `BottomPanel` — bottom half (dark left / light right). Shows sanity & fuel; `setSwipeHint(offset)` highlights the side being swiped toward.
+  - `CardView` — draggable card. Calls back with `"left"` / `"right"` when a swipe crosses threshold.
+  - `HealthBar` — reusable bar with optional inline numeric label.
+  - `fonts.ts` — Beholden font loader and `createText` helper.
 
-As gameplay systems, entities, and data modules are added, document them here so future sessions can orient quickly.
+`GameScene` wires `GameState` ⇄ views; views never know about `GameState`. When adding a new resource or interaction, update `GameState` first, then thread the new snapshot field into the affected view.
 
 ## CI/CD
 
