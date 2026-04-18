@@ -16,16 +16,25 @@ export interface AbilityEvent {
   dealt: number;
 }
 
+export interface AbilityIntent {
+  icon: string;
+  label: string;
+  value?: number;
+}
+
 export interface Ability {
   readonly name: string;
+  readonly intent: AbilityIntent;
   use(ctx: AbilityContext): AbilityEvent;
 }
 
 export class DealDamageAbility implements Ability {
   readonly name: string;
+  readonly intent: AbilityIntent;
 
   constructor(private readonly damage: number) {
     this.name = `Deal ${damage}`;
+    this.intent = { icon: "\u2694", label: "Attack", value: damage };
   }
 
   use(ctx: AbilityContext): AbilityEvent {

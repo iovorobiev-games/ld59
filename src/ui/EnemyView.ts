@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { AbilityIntent } from "../game/Ability";
 import { HealthBar } from "./HealthBar";
 import { createText } from "./fonts";
 
@@ -20,6 +21,8 @@ export class EnemyView {
   private body: Phaser.GameObjects.Rectangle;
   private nameLabel: Phaser.GameObjects.Text;
   private reductionLabel: Phaser.GameObjects.Text;
+  private intentBg: Phaser.GameObjects.Rectangle;
+  private intentLabel: Phaser.GameObjects.Text;
   private healthBar: HealthBar;
 
   constructor(scene: Phaser.Scene, anchorX: number, groundY: number) {
@@ -41,7 +44,21 @@ export class EnemyView {
       color: "#9fd6ff",
     }).setOrigin(0.5);
 
-    this.container.add([this.body, this.nameLabel, this.reductionLabel]);
+    this.intentBg = scene.add
+      .rectangle(0, -v.bodyHeight - 130, 140, 52, 0x1a0608, 0.85)
+      .setStrokeStyle(2, 0xffb347);
+    this.intentLabel = createText(scene, 0, -v.bodyHeight - 130, "", {
+      fontSize: "30px",
+      color: "#ffd27a",
+    }).setOrigin(0.5);
+
+    this.container.add([
+      this.body,
+      this.nameLabel,
+      this.reductionLabel,
+      this.intentBg,
+      this.intentLabel,
+    ]);
 
     this.healthBar = new HealthBar(scene, anchorX, groundY - v.bodyHeight - 30, {
       width: 220,
@@ -49,6 +66,7 @@ export class EnemyView {
       fillColor: 0xff5252,
     });
 
+    this.setIntent(null);
     this.hide();
   }
 
@@ -59,6 +77,8 @@ export class EnemyView {
     this.body.y = -v.bodyHeight / 2;
     this.nameLabel.y = -v.bodyHeight - 70;
     this.reductionLabel.y = -v.bodyHeight / 2;
+    this.intentBg.y = -v.bodyHeight - 130;
+    this.intentLabel.y = -v.bodyHeight - 130;
     this.nameLabel.setText(name);
     this.container.setVisible(true);
     this.healthBar.set(health, maxHealth);
@@ -76,6 +96,22 @@ export class EnemyView {
     } else {
       this.reductionLabel.setVisible(false);
     }
+  }
+
+  setIntent(intent: AbilityIntent | null): void {
+    if (!intent) {
+      this.intentBg.setVisible(false);
+      this.intentLabel.setVisible(false);
+      return;
+    }
+    const text =
+      intent.value !== undefined ? `${intent.icon} ${intent.value}` : `${intent.icon} ${intent.label}`;
+    this.intentLabel.setText(text);
+    const padding = 28;
+    const width = Math.max(120, this.intentLabel.width + padding);
+    this.intentBg.setSize(width, 52);
+    this.intentBg.setVisible(true);
+    this.intentLabel.setVisible(true);
   }
 
   flashHit(): void {
@@ -115,5 +151,9 @@ export class EnemyView {
   private setVisible(v: boolean): void {
     this.container.setVisible(v);
     this.healthBar.setVisible(v);
+    if (!v) {
+      this.intentBg.setVisible(false);
+      this.intentLabel.setVisible(false);
+    }
   }
 }

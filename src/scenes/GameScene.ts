@@ -77,6 +77,7 @@ export class GameScene extends Phaser.Scene {
         snap.encounter.enemyMaxHealth ?? 1,
       );
       this.enemyView.setPendingReduction(snap.encounter.enemyPendingReduction ?? 0);
+      this.enemyView.setIntent(snap.encounter.enemyIntent ?? null);
     }
 
     if (result.enemyAttack) {
@@ -136,6 +137,7 @@ export class GameScene extends Phaser.Scene {
         enc.enemyMaxHealth ?? 1,
       );
       this.enemyView.setPendingReduction(enc.enemyPendingReduction ?? 0);
+      this.enemyView.setIntent(enc.enemyIntent ?? null);
     } else if (enc?.kind === "friendly") {
       this.enemyView.hide();
       this.friendlyView.show(enc.friendlyDescription ?? "");
