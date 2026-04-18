@@ -3,6 +3,7 @@ import { Card, CardSupplier } from "./Card";
 import {
   Encounter,
   EncounterKind,
+  FriendlyCharacter,
   FriendlyEncounter,
   FriendlyOutcome,
   FriendlyReward,
@@ -31,6 +32,8 @@ export interface EncounterSnapshot {
   friendlySequence?: SwipeDirection[];
   friendlyProgress?: number;
   friendlyRewardText?: string;
+  friendlyCharacter?: FriendlyCharacter;
+  friendlyGreeting?: string;
 }
 
 export interface GameStateSnapshot {
@@ -136,6 +139,8 @@ export class GameState {
         friendlySequence: [...enc.sequence],
         friendlyProgress: enc.getProgress(),
         friendlyRewardText: enc.describeReward(),
+        friendlyCharacter: enc.character,
+        friendlyGreeting: enc.greeting,
       };
     }
     return base;

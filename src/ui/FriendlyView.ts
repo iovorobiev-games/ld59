@@ -1,51 +1,176 @@
 import Phaser from "phaser";
-import { SwipeDirection } from "../game/Encounter";
+import { FriendlyCharacter, SwipeDirection } from "../game/Encounter";
 import { createText } from "./fonts";
+import { TypewriterText } from "./TypewriterText";
+
+const DOOR_WIDTH = 680;
+const DOOR_HEIGHT = 659;
+
+const CUTOUT_LEFT = 88;
+const CUTOUT_RIGHT = 604;
+const CUTOUT_TOP = 82;
+const CUTOUT_BOTTOM = 235;
+const CUTOUT_CENTER_X = (CUTOUT_LEFT + CUTOUT_RIGHT) / 2;
+const CUTOUT_CENTER_Y = (CUTOUT_TOP + CUTOUT_BOTTOM) / 2;
+
+const POINTER_HEIGHT = 652;
+
+const BACKING_COLOR = 0x0b0c06;
+const SLIDE_DURATION = 420;
+const OFFSCREEN_OFFSET = 320;
+
+const KNOCK_SCALE = 0.96;
+const KNOCK_HALF_DURATION = 90;
+const KNOCK_COUNT = 3;
+
+const TYPEWRITER_CHAR_MS = 35;
+
+const TEXT_TOP = CUTOUT_BOTTOM + 60;
+const TEXT_BOTTOM = DOOR_HEIGHT - 60;
+const TEXT_CENTER_Y = (TEXT_TOP + TEXT_BOTTOM) / 2;
 
 export class FriendlyView {
-  private container: Phaser.GameObjects.Container;
-  private glow: Phaser.GameObjects.Ellipse;
-  private body: Phaser.GameObjects.Rectangle;
-  private label: Phaser.GameObjects.Text;
-  private sequenceText: Phaser.GameObjects.Text;
-  private rewardText: Phaser.GameObjects.Text;
+  private scene: Phaser.Scene;
+  private character: Phaser.GameObjects.Image;
+  private door: Phaser.GameObjects.Image;
+  private text: Phaser.GameObjects.Text;
+  private typewriter: TypewriterText;
+  private slideTween?: Phaser.Tweens.Tween;
+  private knockTween?: Phaser.Tweens.Tween;
+  private shownCharacter: FriendlyCharacter | null = null;
+  private readonly cutoutLocalX: number;
+  private readonly cutoutLocalY: number;
+  private readonly offscreenLocalX: number;
 
-  constructor(scene: Phaser.Scene, anchorX: number, groundY: number) {
-    this.container = scene.add.container(anchorX, groundY);
+  constructor(scene: Phaser.Scene, rightEdgeX: number, bottomY: number) {
+    this.scene = scene;
+    const container = scene.add.container(rightEdgeX, bottomY);
 
-    this.glow = scene.add.ellipse(0, -90, 220, 220, 0xffe680, 0.25);
-    this.body = scene.add
-      .rectangle(0, -90, 130, 180, 0xe2d3a8)
-      .setStrokeStyle(4, 0x4a2a08);
-    this.label = createText(scene, 0, -260, "FRIENDLY", {
-      fontSize: "30px",
-      color: "#ffd97a",
-    }).setOrigin(0.5);
-    this.sequenceText = createText(scene, 0, -220, "", {
-      fontSize: "28px",
-      color: "#ffffff",
-      align: "center",
-    }).setOrigin(0.5);
-    this.rewardText = createText(scene, 0, -90, "", {
-      fontSize: "22px",
-      color: "#4a2a08",
-      align: "center",
-    }).setOrigin(0.5);
+    this.cutoutLocalX = -(DOOR_WIDTH - CUTOUT_CENTER_X);
+    this.cutoutLocalY = -(DOOR_HEIGHT - CUTOUT_CENTER_Y);
+    this.offscreenLocalX = this.cutoutLocalX + OFFSCREEN_OFFSET;
 
-    this.container.add([
-      this.glow,
-      this.body,
-      this.label,
-      this.sequenceText,
-      this.rewardText,
-    ]);
-    this.hide();
+    const backing = scene.add
+      .rectangle(0, 0, DOOR_WIDTH, DOOR_HEIGHT, BACKING_COLOR)
+      .setOrigin(1, 1);
+
+    this.character = scene.add
+      .image(this.offscreenLocalX, this.cutoutLocalY, "wizard")
+      .setOrigin(0.5, 0.5)
+      .setVisible(false);
+
+    this.door = scene.add.image(0, 0, "door").setOrigin(1, 1);
+
+    const pointerTopLocalY =
+      -DOOR_HEIGHT + (DOOR_HEIGHT - POINTER_HEIGHT) / 2;
+    const pointer = scene.add
+      .image(-DOOR_WIDTH, pointerTopLocalY, "pointer")
+      .setOrigin(1, 0);
+
+    this.text = createText(
+      scene,
+      -DOOR_WIDTH / 2,
+      -(DOOR_HEIGHT - TEXT_CENTER_Y),
+      "",
+      {
+        fontSize: "44px",
+        color: "#f5e6b8",
+        align: "center",
+        wordWrap: { width: DOOR_WIDTH - 120 },
+      },
+    ).setOrigin(0.5);
+    this.typewriter = new TypewriterText(this.text, TYPEWRITER_CHAR_MS);
+
+    container.add([backing, this.character, this.door, pointer, this.text]);
+    container.setDepth(3);
   }
 
-  show(sequence: SwipeDirection[], progress: number, rewardText: string): void {
-    this.sequenceText.setText(this.formatSequence(sequence, progress));
-    this.rewardText.setText(rewardText);
-    this.container.setVisible(true);
+  show(
+    sequence: SwipeDirection[],
+    progress: number,
+    rewardText: string,
+    character: FriendlyCharacter = "wizard",
+    greeting = "",
+  ): void {
+    const fullText = this.buildText(greeting, sequence, progress, rewardText);
+
+    if (character !== this.shownCharacter) {
+      this.shownCharacter = character;
+      this.character.setTexture(character);
+      this.character.setVisible(true);
+      this.typewriter.setImmediate("");
+      this.slideIn(() => this.knock(() => this.typewriter.play(fullText)));
+    } else {
+      this.typewriter.setImmediate(fullText);
+    }
+  }
+
+  hide(): void {
+    if (this.shownCharacter === null) return;
+    this.shownCharacter = null;
+    this.typewriter.setImmediate("");
+    this.cancelKnock();
+    this.slideOut();
+  }
+
+  private buildText(
+    greeting: string,
+    sequence: SwipeDirection[],
+    progress: number,
+    rewardText: string,
+  ): string {
+    const lines = [
+      greeting,
+      this.formatSequence(sequence, progress),
+      rewardText,
+    ].filter((s) => s && s.length > 0);
+    return lines.join("\n");
+  }
+
+  private slideIn(onComplete: () => void): void {
+    this.slideTween?.stop();
+    this.character.x = this.offscreenLocalX;
+    this.slideTween = this.scene.tweens.add({
+      targets: this.character,
+      x: this.cutoutLocalX,
+      duration: SLIDE_DURATION,
+      ease: "Cubic.Out",
+      onComplete,
+    });
+  }
+
+  private slideOut(): void {
+    this.slideTween?.stop();
+    this.slideTween = this.scene.tweens.add({
+      targets: this.character,
+      x: this.offscreenLocalX,
+      duration: SLIDE_DURATION,
+      ease: "Cubic.Out",
+      onComplete: () => this.character.setVisible(false),
+    });
+  }
+
+  private knock(onComplete: () => void): void {
+    this.cancelKnock();
+    this.door.setScale(1);
+    this.knockTween = this.scene.tweens.add({
+      targets: this.door,
+      scale: KNOCK_SCALE,
+      duration: KNOCK_HALF_DURATION,
+      yoyo: true,
+      repeat: KNOCK_COUNT - 1,
+      ease: "Sine.easeInOut",
+      onComplete: () => {
+        this.door.setScale(1);
+        onComplete();
+      },
+    });
+  }
+
+  private cancelKnock(): void {
+    this.knockTween?.stop();
+    this.knockTween = undefined;
+    this.door.setScale(1);
   }
 
   private formatSequence(sequence: SwipeDirection[], progress: number): string {
@@ -57,9 +182,5 @@ export class FriendlyView {
         return token;
       })
       .join("  ");
-  }
-
-  hide(): void {
-    this.container.setVisible(false);
   }
 }

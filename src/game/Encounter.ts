@@ -26,11 +26,15 @@ export interface FriendlyReward {
 
 export type FriendlyOutcome = "progress" | "success" | "fail";
 
+export type FriendlyCharacter = "wizard" | "bandit";
+
 export interface FriendlyEncounterConfig {
   sequence: SwipeDirection[];
   reward: FriendlyReward;
   successText: string;
   failureText: string;
+  character?: FriendlyCharacter;
+  greeting?: string;
 }
 
 export class FriendlyEncounter implements Encounter {
@@ -39,6 +43,8 @@ export class FriendlyEncounter implements Encounter {
   readonly reward: FriendlyReward;
   readonly successText: string;
   readonly failureText: string;
+  readonly character: FriendlyCharacter;
+  readonly greeting: string;
   private progress = 0;
   private failed = false;
 
@@ -47,6 +53,8 @@ export class FriendlyEncounter implements Encounter {
     this.reward = config.reward;
     this.successText = config.successText;
     this.failureText = config.failureText;
+    this.character = config.character ?? "wizard";
+    this.greeting = config.greeting ?? "";
   }
 
   notePlayed(direction: SwipeDirection): FriendlyOutcome {

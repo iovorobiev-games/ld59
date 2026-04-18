@@ -9,7 +9,7 @@ const HINT_FULL_PX = 140;
 
 const CARD_HALF_WIDTH = 124;
 const HINT_PAD = 30;
-const PANEL_TOP_TRANSPARENT = 44;
+export const PANEL_TOP_TRANSPARENT = 44;
 
 export class BottomPanel {
   private sanityText: Phaser.GameObjects.Text;
