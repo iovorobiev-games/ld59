@@ -14,6 +14,7 @@ import {
   UnfriendlyEncounter,
   WizardTeachingPlaceholder,
 } from "./Encounter";
+import { createEncounterById } from "./EncounterRegistry";
 
 export class EncounterManager {
   private index = 0;
@@ -31,6 +32,17 @@ export class EncounterManager {
 
   replaceCurrent(enc: Encounter): void {
     if (this.index < this.deck.length) this.deck[this.index] = enc;
+  }
+
+  insertNext(enc: Encounter): void {
+    this.deck.splice(this.index + 1, 0, enc);
+  }
+
+  insertRandomAfterCurrent(enc: Encounter): void {
+    const lo = this.index + 1;
+    const hi = this.deck.length + 1;
+    const at = lo + Math.floor(Math.random() * Math.max(1, hi - lo));
+    this.deck.splice(at, 0, enc);
   }
 
   isComplete(): boolean {
@@ -197,13 +209,19 @@ function shuffle<T>(items: T[]): T[] {
   return a;
 }
 
-const FRIENDLY_COUNT_IN_DECK = 3;
+const ENEMY_COUNT_IN_DECK = 3;
+const FRIENDLY_COUNT_IN_DECK = ENEMY_COUNT_IN_DECK * 2;
 
 export function buildDefaultDeck(): Encounter[] {
-  const enemies: Encounter[] = ENEMY_POOL.map((make) => make());
+  const enemies: Encounter[] = shuffle(ENEMY_POOL)
+    .slice(0, ENEMY_COUNT_IN_DECK)
+    .map((make) => make());
   const friendlies: Encounter[] = [new WizardTeachingPlaceholder()];
+  const shipwreck = createEncounterById("bandits_shipwreck", { lightOn: false });
+  if (shipwreck) friendlies.push(shipwreck);
+  const extra = Math.max(0, FRIENDLY_COUNT_IN_DECK - friendlies.length);
   const friendlyPool = shuffle(FRIENDLY_POOL);
-  for (let i = 0; i < FRIENDLY_COUNT_IN_DECK - 1; i++) {
+  for (let i = 0; i < extra; i++) {
     friendlies.push(cloneFriendly(friendlyPool[i % friendlyPool.length]));
   }
   return shuffle([...enemies, ...friendlies]);

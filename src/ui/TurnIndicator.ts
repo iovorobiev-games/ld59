@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { SwipeDirection } from "../game/Encounter";
+import { EncounterKind, SwipeDirection } from "../game/Encounter";
 import { createText } from "./fonts";
 
 export interface TurnIndicatorState {
@@ -7,7 +7,7 @@ export interface TurnIndicatorState {
   cardsPerTurn: number;
   encounterPosition: number;
   encounterTotal: number;
-  kind: "friendly" | "unfriendly" | null;
+  kind: EncounterKind | null;
   friendlySequence?: SwipeDirection[];
   friendlyProgress?: number;
 }
@@ -46,6 +46,8 @@ export class TurnIndicator {
           `Cards this turn: ${state.cardsPlayed} / ${state.cardsPerTurn}  (${remaining} left)`,
         )
         .setColor("#ffffff");
+    } else if (state.kind === "story") {
+      this.turnText.setText("Click or swipe to continue").setColor("#ffd97a");
     } else {
       this.turnText.setText("");
     }

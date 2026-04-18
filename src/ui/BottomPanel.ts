@@ -12,6 +12,7 @@ const HINT_PAD = 30;
 export const PANEL_TOP_TRANSPARENT = 44;
 
 export class BottomPanel {
+  private scene: Phaser.Scene;
   private sanityText: Phaser.GameObjects.Text;
   private fuelText: Phaser.GameObjects.Text;
   private sanityHighlight: Phaser.GameObjects.Rectangle;
@@ -21,6 +22,9 @@ export class BottomPanel {
   private leftEffect: Phaser.GameObjects.Text;
   private rightEffect: Phaser.GameObjects.Text;
   private cardCenterX: number;
+  private prevSanity = 0;
+  private prevFuel = 0;
+  private initialized = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -28,6 +32,7 @@ export class BottomPanel {
     panelWidth: number,
     panelHeight: number,
   ) {
+    this.scene = scene;
     const halfW = panelWidth / 2;
     const cardCenterY = panelTopY + panelHeight / 2;
     this.cardCenterX = halfW;
@@ -121,24 +126,73 @@ export class BottomPanel {
   }
 
   setResources(sanity: number, fuel: number): void {
+    const dSanity = this.initialized ? sanity - this.prevSanity : 0;
+    const dFuel = this.initialized ? fuel - this.prevFuel : 0;
     this.sanityText.setText(`${sanity}`);
     this.fuelText.setText(`${fuel}`);
+    if (dSanity !== 0) this.floatDelta(this.sanityText, dSanity, "sanity");
+    if (dFuel !== 0) this.floatDelta(this.fuelText, dFuel, "fuel");
+    this.prevSanity = sanity;
+    this.prevFuel = fuel;
+    this.initialized = true;
   }
 
   pulseFuel(scene: Phaser.Scene): void {
-    scene.tweens.killTweensOf(this.fuelText);
-    this.fuelText.setScale(1);
+    this.pulse(scene, this.fuelText);
+  }
+
+  fuelAnchor(): { x: number; y: number } {
+    return { x: this.fuelText.x, y: this.fuelText.y };
+  }
+
+  sanityAnchor(): { x: number; y: number } {
+    return { x: this.sanityText.x, y: this.sanityText.y };
+  }
+
+  private floatDelta(
+    target: Phaser.GameObjects.Text,
+    delta: number,
+    kind: "sanity" | "fuel",
+  ): void {
+    const isPositive = delta > 0;
+    const label = isPositive ? `+${delta}` : `${delta}`;
+    const color = isPositive
+      ? kind === "sanity"
+        ? "#d6c8ff"
+        : "#fff6c0"
+      : "#ff7070";
+    const stroke = kind === "sanity" ? "#1a1240" : "#2a1a0a";
+    const floater = createText(this.scene, target.x, target.y - 10, label, {
+      fontSize: "96px",
+      color,
+      stroke,
+      strokeThickness: 10,
+    })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(210);
+    this.scene.tweens.add({
+      targets: floater,
+      y: target.y - 220,
+      alpha: { from: 1, to: 0 },
+      scale: { from: 0.7, to: 1.5 },
+      duration: 900,
+      ease: "Cubic.Out",
+      onComplete: () => floater.destroy(),
+    });
+    this.pulse(this.scene, target);
+  }
+
+  private pulse(scene: Phaser.Scene, target: Phaser.GameObjects.Text): void {
+    scene.tweens.killTweensOf(target);
+    target.setScale(1);
     scene.tweens.add({
-      targets: this.fuelText,
+      targets: target,
       scale: 1.5,
       duration: 180,
       ease: "Cubic.Out",
       yoyo: true,
     });
-  }
-
-  fuelAnchor(): { x: number; y: number } {
-    return { x: this.fuelText.x, y: this.fuelText.y };
   }
 
   setSwipeHint(dragOffset: number, fuelAvailable: boolean): void {
