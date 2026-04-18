@@ -1,86 +1,52 @@
 import Phaser from "phaser";
 import { HealthBar } from "./HealthBar";
+import { SILHOUETTE_PIPELINE_KEY } from "../pipelines/SilhouettePipeline";
 
-const SKY_LIT = 0x4a6f9c;
-const SKY_DARK = 0x05080f;
-const LIGHTHOUSE_LIT = 0xeeeeee;
-const LIGHTHOUSE_DARK = 0x101010;
-const STRIPE_LIT = 0xc83232;
-const STRIPE_DARK = 0x180404;
-const LAMP_OFF = 0x222222;
-const LAMP_ON = 0xffe680;
+const SKY_COLOR = 0x0b0c06;
+const LIGHT_OFF_TINT = 0x0b0c06;
+const BEAM_ALPHA_ON = 0.7;
+
+const LIGHTHOUSE_WIDTH = 252;
+const LIGHTHOUSE_HEIGHT = 487;
+const LIGHTHOUSE_BOTTOM_OFFSET = 30;
+const LIGHTHOUSE_X_OFFSET = LIGHTHOUSE_WIDTH / 2;
+const LAMP_OFFSET_Y = -LIGHTHOUSE_HEIGHT + 50 + 60;
 
 export class LighthouseView {
   private scene: Phaser.Scene;
   private sky: Phaser.GameObjects.Rectangle;
-  private body: Phaser.GameObjects.Polygon;
-  private stripe1: Phaser.GameObjects.Rectangle;
-  private stripe2: Phaser.GameObjects.Rectangle;
-  private cap: Phaser.GameObjects.Polygon;
-  private lampHousing: Phaser.GameObjects.Rectangle;
-  private lamp: Phaser.GameObjects.Ellipse;
-  private base: Phaser.GameObjects.Rectangle;
+  private rock: Phaser.GameObjects.Image;
+  private body: Phaser.GameObjects.Image;
   private leftBeam: Phaser.GameObjects.Polygon;
   private rightBeam: Phaser.GameObjects.Polygon;
   private healthBar: HealthBar;
   private lightOn = true;
 
-  constructor(scene: Phaser.Scene, areaWidth: number, areaHeight: number) {
+  constructor(
+    scene: Phaser.Scene,
+    areaWidth: number,
+    areaHeight: number,
+    sceneHeight: number,
+  ) {
     this.scene = scene;
     const cx = areaWidth / 2;
-    const groundY = areaHeight - 30;
+    const lighthouseX = cx + LIGHTHOUSE_X_OFFSET;
+    const groundY = areaHeight - LIGHTHOUSE_BOTTOM_OFFSET;
 
     this.sky = scene.add
-      .rectangle(0, 0, areaWidth, areaHeight, SKY_LIT)
+      .rectangle(0, 0, areaWidth, sceneHeight, SKY_COLOR)
       .setOrigin(0);
 
-    const bodyTopY = groundY - 360;
-    const bodyBottomY = groundY;
-    const bodyHalfTop = 50;
-    const bodyHalfBottom = 90;
-    this.body = scene.add.polygon(
-      0,
-      0,
-      [
-        cx - bodyHalfTop, bodyTopY,
-        cx + bodyHalfTop, bodyTopY,
-        cx + bodyHalfBottom, bodyBottomY,
-        cx - bodyHalfBottom, bodyBottomY,
-      ],
-      LIGHTHOUSE_LIT,
-    );
-    this.body.setOrigin(0);
+    this.rock = scene.add
+      .image(areaWidth, sceneHeight, "rock")
+      .setOrigin(1, 1);
 
-    this.stripe1 = scene.add
-      .rectangle(cx, bodyTopY + 90, 110, 35, STRIPE_LIT)
-      .setOrigin(0.5);
-    this.stripe2 = scene.add
-      .rectangle(cx, bodyTopY + 240, 140, 35, STRIPE_LIT)
-      .setOrigin(0.5);
+    this.body = scene.add
+      .image(lighthouseX, groundY, "lighthouse")
+      .setOrigin(0.5, 1);
 
-    const lampY = bodyTopY - 60;
-    this.lampHousing = scene.add
-      .rectangle(cx, lampY, 100, 80, LIGHTHOUSE_LIT)
-      .setOrigin(0.5);
-    this.lamp = scene.add.ellipse(cx, lampY, 60, 50, LAMP_ON);
-
-    this.cap = scene.add.polygon(
-      0,
-      0,
-      [
-        cx - 70, lampY - 40,
-        cx + 70, lampY - 40,
-        cx, lampY - 130,
-      ],
-      LIGHTHOUSE_LIT,
-    );
-    this.cap.setOrigin(0);
-
-    this.base = scene.add
-      .rectangle(cx, groundY + 15, 260, 30, LIGHTHOUSE_LIT)
-      .setOrigin(0.5);
-
-    // Two beams shoot horizontally outward from the lamp.
+    const lampX = lighthouseX;
+    const lampY = groundY + LAMP_OFFSET_Y;
     const beamSpread = 90;
     const beamColor = 0xfff2a8;
     this.leftBeam = scene.add
@@ -88,27 +54,29 @@ export class LighthouseView {
         0,
         0,
         [
-          cx, lampY,
+          lampX, lampY,
           -40, lampY - beamSpread,
           -40, lampY + beamSpread,
         ],
         beamColor,
         0.0,
       )
-      .setOrigin(0);
+      .setOrigin(0)
+      .setDepth(100);
     this.rightBeam = scene.add
       .polygon(
         0,
         0,
         [
-          cx, lampY,
+          lampX, lampY,
           areaWidth + 40, lampY - beamSpread,
           areaWidth + 40, lampY + beamSpread,
         ],
         beamColor,
         0.0,
       )
-      .setOrigin(0);
+      .setOrigin(0)
+      .setDepth(100);
 
     this.healthBar = new HealthBar(scene, cx, 60, {
       width: 360,
@@ -119,36 +87,27 @@ export class LighthouseView {
 
   setLight(on: boolean): void {
     this.lightOn = on;
-    const targetSky = on ? SKY_LIT : SKY_DARK;
-    const targetBody = on ? LIGHTHOUSE_LIT : LIGHTHOUSE_DARK;
-    const targetStripe = on ? STRIPE_LIT : STRIPE_DARK;
-    const targetLamp = on ? LAMP_ON : LAMP_OFF;
-
-    this.sky.fillColor = targetSky;
-    this.body.fillColor = targetBody;
-    this.cap.fillColor = targetBody;
-    this.lampHousing.fillColor = targetBody;
-    this.base.fillColor = targetBody;
-    this.stripe1.fillColor = targetStripe;
-    this.stripe2.fillColor = targetStripe;
-    this.lamp.fillColor = targetLamp;
+    if (on) {
+      this.body.resetPostPipeline();
+      this.body.clearTint();
+    } else {
+      this.body.setPostPipeline(SILHOUETTE_PIPELINE_KEY);
+      this.body.setTint(LIGHT_OFF_TINT);
+    }
+    const beams = [this.leftBeam, this.rightBeam];
+    this.scene.tweens.killTweensOf(beams);
+    beams.forEach((b) => (b.fillAlpha = on ? BEAM_ALPHA_ON : 0));
   }
 
   flashLight(): void {
     const beams = [this.leftBeam, this.rightBeam];
     this.scene.tweens.killTweensOf(beams);
-    beams.forEach((b) => (b.fillAlpha = 0.85));
+    beams.forEach((b) => (b.fillAlpha = 1));
     this.scene.tweens.add({
       targets: beams,
-      fillAlpha: 0,
-      duration: 600,
+      fillAlpha: this.lightOn ? BEAM_ALPHA_ON : 0,
+      duration: 300,
       ease: "Cubic.Out",
-    });
-
-    const originalLampColor = this.lamp.fillColor;
-    this.lamp.fillColor = 0xffffff;
-    this.scene.time.delayedCall(120, () => {
-      this.lamp.fillColor = this.lightOn ? LAMP_ON : originalLampColor;
     });
   }
 

@@ -88,42 +88,12 @@ export function buildDefaultDeck(): Encounter[] {
   return [
     new UnfriendlyEncounter(
       new Enemy({
-        name: "Whisper",
-        maxHealth: 3,
-        abilities: [new DealDamageAbility(1)],
-      }),
-    ),
-    cloneFriendly(FRIENDLY_POOL[0]),
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Lurker",
-        maxHealth: 6,
-        abilities: [new DealDamageAbility(1), new DealDamageAbility(2)],
-      }),
-    ),
-    cloneFriendly(FRIENDLY_POOL[3]),
-    cloneFriendly(FRIENDLY_POOL[2]),
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Abomination",
-        maxHealth: 10,
+        name: "Tentacle",
+        maxHealth: 5,
         abilities: [
           new DealDamageAbility(1),
           new DealDamageAbility(2),
           new DealDamageAbility(3),
-        ],
-      }),
-    ),
-    cloneFriendly(FRIENDLY_POOL[4]),
-    cloneFriendly(FRIENDLY_POOL[1]),
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Leviathan",
-        maxHealth: 15,
-        abilities: [
-          new DealDamageAbility(2),
-          new DealDamageAbility(3),
-          new DealDamageAbility(4),
         ],
       }),
     ),

@@ -2,54 +2,70 @@ import Phaser from "phaser";
 import { AbilityIntent } from "../game/Ability";
 import { HealthBar } from "./HealthBar";
 import { createText } from "./fonts";
+import { SILHOUETTE_PIPELINE_KEY } from "../pipelines/SilhouettePipeline";
+
+const LIGHT_OFF_TINT = 0x0b0c06;
 
 export interface EnemyVisual {
-  bodyColor: number;
-  bodyWidth: number;
-  bodyHeight: number;
+  spriteKey: string;
 }
 
 export const DEFAULT_ENEMY_VISUAL: EnemyVisual = {
-  bodyColor: 0x6a1f33,
-  bodyWidth: 180,
-  bodyHeight: 240,
+  spriteKey: "tentacle",
 };
 
 export class EnemyView {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
-  private body: Phaser.GameObjects.Rectangle;
+  private body: Phaser.GameObjects.Image;
   private nameLabel: Phaser.GameObjects.Text;
   private reductionLabel: Phaser.GameObjects.Text;
   private intentBg: Phaser.GameObjects.Rectangle;
   private intentLabel: Phaser.GameObjects.Text;
   private healthBar: HealthBar;
 
-  constructor(scene: Phaser.Scene, anchorX: number, groundY: number) {
+  constructor(
+    scene: Phaser.Scene,
+    anchorX: number,
+    groundY: number,
+    bodyCenterY: number,
+  ) {
     this.scene = scene;
     this.container = scene.add.container(anchorX, groundY);
 
-    const v = DEFAULT_ENEMY_VISUAL;
+    const bodyRestY = bodyCenterY - groundY;
     this.body = scene.add
-      .rectangle(0, -v.bodyHeight / 2, v.bodyWidth, v.bodyHeight, v.bodyColor)
-      .setStrokeStyle(4, 0x180404);
+      .image(0, bodyRestY, DEFAULT_ENEMY_VISUAL.spriteKey)
+      .setOrigin(0.5, 0.5);
+    scene.tweens.add({
+      targets: this.body,
+      y: bodyRestY - 12,
+      duration: 1800,
+      ease: "Sine.InOut",
+      yoyo: true,
+      repeat: -1,
+    });
 
-    this.nameLabel = createText(scene, 0, -v.bodyHeight - 70, "", {
+    const intentY = -(groundY - 60);
+    const nameY = intentY + 70;
+    const reductionY = nameY + 60;
+
+    this.intentBg = scene.add
+      .rectangle(0, intentY, 140, 52, 0x1a0608, 0.85)
+      .setStrokeStyle(2, 0xffb347);
+    this.intentLabel = createText(scene, 0, intentY, "", {
+      fontSize: "30px",
+      color: "#ffd27a",
+    }).setOrigin(0.5);
+
+    this.nameLabel = createText(scene, 0, nameY, "", {
       fontSize: "32px",
       color: "#ffd0d0",
     }).setOrigin(0.5);
 
-    this.reductionLabel = createText(scene, 0, -v.bodyHeight / 2, "", {
+    this.reductionLabel = createText(scene, 0, reductionY, "", {
       fontSize: "28px",
       color: "#9fd6ff",
-    }).setOrigin(0.5);
-
-    this.intentBg = scene.add
-      .rectangle(0, -v.bodyHeight - 130, 140, 52, 0x1a0608, 0.85)
-      .setStrokeStyle(2, 0xffb347);
-    this.intentLabel = createText(scene, 0, -v.bodyHeight - 130, "", {
-      fontSize: "30px",
-      color: "#ffd27a",
     }).setOrigin(0.5);
 
     this.container.add([
@@ -60,7 +76,7 @@ export class EnemyView {
       this.intentLabel,
     ]);
 
-    this.healthBar = new HealthBar(scene, anchorX, groundY - v.bodyHeight - 30, {
+    this.healthBar = new HealthBar(scene, anchorX, groundY + reductionY + 40, {
       width: 220,
       height: 26,
       fillColor: 0xff5252,
@@ -72,17 +88,21 @@ export class EnemyView {
 
   show(name: string, health: number, maxHealth: number, visual?: Partial<EnemyVisual>): void {
     const v = { ...DEFAULT_ENEMY_VISUAL, ...visual };
-    this.body.setSize(v.bodyWidth, v.bodyHeight);
-    this.body.fillColor = v.bodyColor;
-    this.body.y = -v.bodyHeight / 2;
-    this.nameLabel.y = -v.bodyHeight - 70;
-    this.reductionLabel.y = -v.bodyHeight / 2;
-    this.intentBg.y = -v.bodyHeight - 130;
-    this.intentLabel.y = -v.bodyHeight - 130;
+    this.body.setTexture(v.spriteKey);
     this.nameLabel.setText(name);
     this.container.setVisible(true);
     this.healthBar.set(health, maxHealth);
     this.setVisible(true);
+  }
+
+  setLight(on: boolean): void {
+    if (on) {
+      this.body.resetPostPipeline();
+      this.body.clearTint();
+    } else {
+      this.body.setPostPipeline(SILHOUETTE_PIPELINE_KEY);
+      this.body.setTint(LIGHT_OFF_TINT);
+    }
   }
 
   setHealth(current: number, max: number): void {
@@ -115,19 +135,9 @@ export class EnemyView {
   }
 
   flashHit(): void {
-    this.scene.tweens.killTweensOf(this.body);
-    const original = this.body.fillColor;
-    this.body.fillColor = 0xffffff;
-    this.scene.tweens.add({
-      targets: this.body,
-      fillAlpha: { from: 1, to: 0.4 },
-      duration: 80,
-      yoyo: true,
-      repeat: 1,
-      onComplete: () => {
-        this.body.fillColor = original;
-        this.body.fillAlpha = 1;
-      },
+    this.body.setTintFill(0xffffff);
+    this.scene.time.delayedCall(120, () => {
+      this.body.clearTint();
     });
   }
 
