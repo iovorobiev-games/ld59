@@ -8,6 +8,7 @@ import {
   SilhouettePipeline,
   SILHOUETTE_PIPELINE_KEY,
 } from "./pipelines/SilhouettePipeline";
+import { CrtPipeline, CRT_PIPELINE_KEY } from "./pipelines/CrtPipeline";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -23,17 +24,20 @@ const config: Phaser.Types.Core.GameConfig = {
   render: {
     roundPixels: true,
   },
+  callbacks: {
+    postBoot: (game) => {
+      const renderer = game.renderer as Phaser.Renderer.WebGL.WebGLRenderer;
+      if (renderer.pipelines) {
+        renderer.pipelines.addPostPipeline(
+          SILHOUETTE_PIPELINE_KEY,
+          SilhouettePipeline,
+        );
+        renderer.pipelines.addPostPipeline(CRT_PIPELINE_KEY, CrtPipeline);
+      }
+    },
+  },
 };
 
 loadGameFont().finally(() => {
-  const game = new Phaser.Game(config);
-  game.events.once(Phaser.Core.Events.READY, () => {
-    const renderer = game.renderer as Phaser.Renderer.WebGL.WebGLRenderer;
-    if (renderer.pipelines) {
-      renderer.pipelines.addPostPipeline(
-        SILHOUETTE_PIPELINE_KEY,
-        SilhouettePipeline,
-      );
-    }
-  });
+  new Phaser.Game(config);
 });

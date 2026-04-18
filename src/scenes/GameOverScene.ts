@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { createText } from "../ui/fonts";
+import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 
 interface GameOverData {
   won?: boolean;
@@ -20,6 +21,7 @@ export class GameOverScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor(this.won ? "#0f1a05" : "#05080f");
+    applyCrtPipeline(this);
 
     createText(this, width / 2, height / 2 - 120, this.won ? "VICTORY" : "GAME OVER", {
       fontSize: "180px",
