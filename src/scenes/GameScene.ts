@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { GameState, GameStateSnapshot } from "../game/GameState";
 import { LighthouseView } from "../ui/LighthouseView";
-import { BottomPanel } from "../ui/BottomPanel";
+import { BottomPanel, PANEL_TOP_TRANSPARENT } from "../ui/BottomPanel";
 import { CardView } from "../ui/CardView";
 import { EnemyView } from "../ui/EnemyView";
 import { FriendlyView } from "../ui/FriendlyView";
@@ -43,7 +43,7 @@ export class GameScene extends Phaser.Scene {
 
     this.lighthouse = new LighthouseView(this, width, panelTop, height);
     this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY, height / 2);
-    this.friendlyView = new FriendlyView(this, ENEMY_ANCHOR_X, groundY);
+    this.friendlyView = new FriendlyView(this, width, panelTop + PANEL_TOP_TRANSPARENT);
     this.panel = new BottomPanel(this, panelTop, width, PANEL_HEIGHT);
 
     this.turnIndicator = new TurnIndicator(this, width - 260, 40);
@@ -116,6 +116,8 @@ export class GameScene extends Phaser.Scene {
         snap.encounter.friendlySequence ?? [],
         snap.encounter.friendlyProgress ?? 0,
         snap.encounter.friendlyRewardText ?? "",
+        snap.encounter.friendlyCharacter ?? "wizard",
+        snap.encounter.friendlyGreeting ?? "",
       );
     }
 
@@ -246,6 +248,8 @@ export class GameScene extends Phaser.Scene {
         enc.friendlySequence ?? [],
         enc.friendlyProgress ?? 0,
         enc.friendlyRewardText ?? "",
+        enc.friendlyCharacter ?? "wizard",
+        enc.friendlyGreeting ?? "",
       );
       this.panel.setEffectHints("", "");
     } else {

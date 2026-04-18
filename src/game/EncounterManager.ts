@@ -48,30 +48,40 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
     reward: { fuel: 3, hp: 2 },
     successText: "Bless this light.",
     failureText: "Ok then.",
+    character: "wizard",
+    greeting: "Dim your lamp, keeper.",
   },
   {
     sequence: ["left", "left", "left"],
     reward: { fuel: 5 },
     successText: "Take the oil, keeper.",
     failureText: "Suit yourself.",
+    character: "bandit",
+    greeting: "Douse the light.\nI've got oil to spare.",
   },
   {
     sequence: ["right", "right", "right"],
     reward: { sanity: 5 },
     successText: "The song steadies you.",
     failureText: "No means no...",
+    character: "wizard",
+    greeting: "Shine, keeper.\nSing with me.",
   },
   {
     sequence: ["left", "left", "right"],
     reward: { fuel: 3, sanity: 3 },
     successText: "A fair trade.",
     failureText: "Not the dance I asked for.",
+    character: "bandit",
+    greeting: "Off, off,\nthen ON.",
   },
   {
     sequence: ["left", "right", "right"],
     reward: { fuel: 3, sanity: 3 },
     successText: "A fair trade.",
     failureText: "Not the dance I asked for.",
+    character: "wizard",
+    greeting: "Off, then\nON, ON.",
   },
 ];
 
@@ -81,11 +91,14 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
     reward: { ...cfg.reward },
     successText: cfg.successText,
     failureText: cfg.failureText,
+    character: cfg.character,
+    greeting: cfg.greeting,
   });
 }
 
 export function buildDefaultDeck(): Encounter[] {
   return [
+    cloneFriendly(FRIENDLY_POOL[0]),
     new UnfriendlyEncounter(
       new Enemy({
         name: "Tentacle",

@@ -45,7 +45,8 @@ export class LighthouseView {
 
     this.body = scene.add
       .image(lighthouseX, groundY, "lighthouse")
-      .setOrigin(0.5, 1);
+      .setOrigin(0.5, 1)
+      .setDepth(1);
 
     this.impactX = lighthouseX - LIGHTHOUSE_WIDTH / 2 - 40;
     this.impactY = groundY - LIGHTHOUSE_HEIGHT / 2;
@@ -67,7 +68,7 @@ export class LighthouseView {
         0.0,
       )
       .setOrigin(0)
-      .setDepth(100);
+      .setDepth(2);
     this.rightBeam = scene.add
       .polygon(
         0,
@@ -81,7 +82,7 @@ export class LighthouseView {
         0.0,
       )
       .setOrigin(0)
-      .setDepth(100);
+      .setDepth(2);
 
     this.healthBar = new HealthBar(scene, cx, 60, {
       width: 360,
