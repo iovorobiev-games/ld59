@@ -10,7 +10,7 @@ import { TurnIndicator } from "../ui/TurnIndicator";
 
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
-const FRIENDLY_HOLD_MS = 600;
+const FRIENDLY_HOLD_MS = 1500;
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
@@ -69,6 +69,7 @@ export class GameScene extends Phaser.Scene {
     this.lighthouse.setLight(snap.lightOn);
     if (direction === "right") this.lighthouse.flashLight();
     this.panel.setResources(snap.sanity, snap.fuel);
+    this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
 
     if (result.card.damageDealt) this.enemyView.flashHit();
     if (snap.encounter?.kind === "unfriendly") {
@@ -78,11 +79,16 @@ export class GameScene extends Phaser.Scene {
       );
       this.enemyView.setPendingReduction(snap.encounter.enemyPendingReduction ?? 0);
       this.enemyView.setIntent(snap.encounter.enemyIntent ?? null);
+    } else if (snap.encounter?.kind === "friendly") {
+      this.friendlyView.show(
+        snap.encounter.friendlySequence ?? [],
+        snap.encounter.friendlyProgress ?? 0,
+        snap.encounter.friendlyRewardText ?? "",
+      );
     }
 
     if (result.enemyAttack) {
       this.enemyView.flashAttack();
-      this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
     }
 
     this.updateTurnIndicator();
@@ -102,7 +108,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (result.encounterResolvedKind === "friendly") {
-      this.time.delayedCall(FRIENDLY_HOLD_MS, () => this.startNextEncounter());
+      const msg = result.friendlyMessage ?? "";
+      this.overlay.play(msg, FRIENDLY_HOLD_MS, () => this.startNextEncounter());
       return;
     }
 
@@ -140,7 +147,11 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.setIntent(enc.enemyIntent ?? null);
     } else if (enc?.kind === "friendly") {
       this.enemyView.hide();
-      this.friendlyView.show(enc.friendlyDescription ?? "");
+      this.friendlyView.show(
+        enc.friendlySequence ?? [],
+        enc.friendlyProgress ?? 0,
+        enc.friendlyRewardText ?? "",
+      );
     } else {
       this.enemyView.hide();
       this.friendlyView.hide();
@@ -157,6 +168,8 @@ export class GameScene extends Phaser.Scene {
       encounterPosition: snap.encounter?.position ?? snap.encounter?.total ?? 0,
       encounterTotal: snap.encounter?.total ?? 0,
       kind: snap.encounter?.kind ?? null,
+      friendlySequence: snap.encounter?.friendlySequence,
+      friendlyProgress: snap.encounter?.friendlyProgress,
     });
   }
 
