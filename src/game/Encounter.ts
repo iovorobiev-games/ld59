@@ -1,7 +1,12 @@
 import { Enemy } from "./Enemy";
 import { LightState, SPELL_SEQUENCE_LENGTH, Spell, sequencesMatch } from "./Spell";
 
-export type EncounterKind = "friendly" | "unfriendly" | "story" | "deferred";
+export type EncounterKind =
+  | "friendly"
+  | "unfriendly"
+  | "story"
+  | "tutorial"
+  | "deferred";
 export type SwipeDirection = "left" | "right";
 export type EncounterId = string;
 
