@@ -39,16 +39,24 @@ Game resolution is 1920x1080 with `Phaser.Scale.FIT` auto-centering. Assets live
 - **`scenes/`** — Phaser scenes:
   - `SplashScene` → `BootScene` → `GameScene` (gameplay) → `GameOverScene` (on sanity 0, with Try Again button that restarts `GameScene`).
 - **`game/`** — Pure logic, no Phaser imports.
-  - `GameState` — owns sanity / fuel / lighthouse health / lightOn flag and the deck. `swipe(dir)` mutates state and returns a snapshot. UI never reads internals directly.
+  - `GameState` — owns sanity / fuel / lighthouse health / lightOn flag, the card supplier, the `EncounterManager`, turn counter (3 cards/turn), and `phase` (`player` | `transitioning` | `gameOver` | `victory`). `playCard(dir)` applies card effect, resolves encounter, triggers enemy attack after 3 cards, and returns a `PlayCardResult` event. `advanceEncounter()` moves to the next encounter after the scene finishes the overlay. Left swipe = Dark (queues −1 next-attack dmg on enemy); right swipe = Light (1 dmg to enemy).
   - `Card` / `CardSupplier` — infinite deck supplier.
+  - `Ability` — `Ability` interface, `DealDamageAbility(damage)`, `PlayerTarget` (anything with `takeDamage(amount)`). New enemy powers plug in by implementing `Ability`.
+  - `Enemy` — HP, list of `Ability`, queued damage reduction (cleared after one attack), `chooseAbility()` picks one at random.
+  - `Encounter` — `UnfriendlyEncounter(enemy)` resolves when enemy dies; `FriendlyEncounter(description)` resolves after 1 card.
+  - `EncounterManager` — deck of encounters (built by `buildDefaultDeck()` — 6 encounters mixing friendly and unfriendly). Beating the deck = victory.
 - **`ui/`** — Phaser-dependent views, each owning a single visual concern (SRP).
   - `LighthouseView` — top half. Lighthouse + sky + health bar; `setLight(on)` toggles silhouette mode; `flashLight()` strobes the cone.
   - `BottomPanel` — bottom half (dark left / light right). Shows sanity & fuel; `setSwipeHint(offset)` highlights the side being swiped toward.
   - `CardView` — draggable card. Calls back with `"left"` / `"right"` when a swipe crosses threshold.
-  - `HealthBar` — reusable bar with optional inline numeric label.
+  - `HealthBar` — reusable bar with optional inline numeric label and visibility toggle.
+  - `EnemyView` — placeholder rectangle + HP bar + pending-reduction label, positioned left of the lighthouse. Accepts an `EnemyVisual` config so future sprites plug in without changing the class.
+  - `FriendlyView` — glow + card silhouette + description for friendly encounters.
+  - `EncounterOverlay` — dim rect + centered message (e.g. "ABOMINATION EXPELLED"); fades in/out and fires a callback on completion. Cards stay visible but are locked via `phase === 'transitioning'`.
+  - `TurnIndicator` — top-right HUD showing "Encounter X / Y" and cards-remaining (or "Play any 1 card to pass" for friendly).
   - `fonts.ts` — Beholden font loader and `createText` helper.
 
-`GameScene` wires `GameState` ⇄ views; views never know about `GameState`. When adding a new resource or interaction, update `GameState` first, then thread the new snapshot field into the affected view.
+`GameScene` wires `GameState` ⇄ views; views never know about `GameState`. When adding a new resource or interaction, update `GameState` first, then thread the new snapshot field into the affected view. New enemies go in `buildDefaultDeck()` (or any other deck builder) with whatever `Ability` subclasses they need; the view layer needs no changes unless you want custom visuals, which go through `EnemyView.show(name, hp, max, visual?)`.
 
 ## CI/CD
 

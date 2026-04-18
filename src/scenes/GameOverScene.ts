@@ -1,26 +1,36 @@
 import Phaser from "phaser";
 import { createText } from "../ui/fonts";
 
+interface GameOverData {
+  won?: boolean;
+}
+
 export class GameOverScene extends Phaser.Scene {
+  private won = false;
+
   constructor() {
     super({ key: "GameOverScene" });
+  }
+
+  init(data: GameOverData): void {
+    this.won = data?.won === true;
   }
 
   create(): void {
     const { width, height } = this.scale;
 
-    this.cameras.main.setBackgroundColor("#05080f");
+    this.cameras.main.setBackgroundColor(this.won ? "#0f1a05" : "#05080f");
 
-    createText(this, width / 2, height / 2 - 120, "GAME OVER", {
+    createText(this, width / 2, height / 2 - 120, this.won ? "VICTORY" : "GAME OVER", {
       fontSize: "180px",
-      color: "#ff5252",
+      color: this.won ? "#a6ff52" : "#ff5252",
     }).setOrigin(0.5);
 
     createText(
       this,
       width / 2,
       height / 2 + 20,
-      "the keeper lost his mind",
+      this.won ? "the coast is clear" : "the keeper lost his mind",
       { fontSize: "48px", color: "#cccccc" },
     ).setOrigin(0.5);
 
@@ -31,7 +41,7 @@ export class GameOverScene extends Phaser.Scene {
       .rectangle(width / 2, buttonY, buttonW, buttonH, 0x222842)
       .setStrokeStyle(4, 0xffffff)
       .setInteractive({ useHandCursor: true });
-    const label = createText(this, width / 2, buttonY, "Try Again", {
+    const label = createText(this, width / 2, buttonY, this.won ? "Play Again" : "Try Again", {
       fontSize: "56px",
       color: "#ffffff",
     }).setOrigin(0.5);
