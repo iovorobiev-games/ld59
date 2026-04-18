@@ -62,6 +62,7 @@ export interface GameStateSnapshot {
   cardsPerTurn: number;
   encounter: EncounterSnapshot | null;
   spellSequence: readonly LightState[];
+  knownSpellIds: readonly SpellId[];
 }
 
 export interface SpellCastEffect {
@@ -126,6 +127,10 @@ export class GameState {
   private phase: GamePhase = "player";
   private fuelSurcharge = 0;
   private spellBook: SpellBook;
+  private stunNextAttack = false;
+  private lighthouseDefence = 0;
+  private extraActionsThisTurn = 0;
+  private burnActiveInEncounter = false;
 
   constructor(opts: GameStateOpts = {}) {
     this.current = this.supplier.draw();
@@ -150,9 +155,10 @@ export class GameState {
       topCard: this.current,
       phase: this.phase,
       cardsThisTurn: this.cardsThisTurn,
-      cardsPerTurn: CARDS_PER_TURN,
+      cardsPerTurn: CARDS_PER_TURN + this.extraActionsThisTurn,
       encounter: this.snapshotEncounter(),
       spellSequence: [...this.spellBook.sequence()],
+      knownSpellIds: [...this.spellBook.knownIds()],
     };
   }
 
@@ -270,20 +276,35 @@ export class GameState {
       return result;
     }
 
-    if (this.cardsThisTurn >= CARDS_PER_TURN) {
+    if (this.cardsThisTurn >= CARDS_PER_TURN + this.extraActionsThisTurn) {
       if (enc instanceof UnfriendlyEncounter) {
-        const ev = enc.enemy.useIntent({
-          source: enc.enemy,
-          target: {
-            takeDamage: (amt) => this.applyLighthouseDamage(amt),
-            takeSanityDamage: (amt) => this.applySanityDamage(amt),
-            applyFuelSurcharge: (amt) => this.addFuelSurcharge(amt),
-          },
-        });
-        result.enemyAttack = ev;
+        if (this.burnActiveInEncounter && !enc.enemy.isDead()) {
+          enc.enemy.takeDamage(1);
+        }
+        if (enc.enemy.isDead()) {
+          result.encounterResolvedKind = enc.kind;
+          this.cardsThisTurn = 0;
+          this.extraActionsThisTurn = 0;
+          this.phase = "transitioning";
+          return result;
+        }
+        if (this.stunNextAttack) {
+          this.stunNextAttack = false;
+        } else {
+          const ev = enc.enemy.useIntent({
+            source: enc.enemy,
+            target: {
+              takeDamage: (amt) => this.applyLighthouseDamage(amt),
+              takeSanityDamage: (amt) => this.applySanityDamage(amt),
+              applyFuelSurcharge: (amt) => this.addFuelSurcharge(amt),
+            },
+          });
+          result.enemyAttack = ev;
+        }
         if (!enc.enemy.isDead()) enc.enemy.rollIntent();
       }
       this.cardsThisTurn = 0;
+      this.extraActionsThisTurn = 0;
     }
 
     if (this.health <= 0 || this.sanity <= 0) {
@@ -297,6 +318,10 @@ export class GameState {
   advanceEncounter(): void {
     if (this.phase !== "transitioning") return;
     this.fuelSurcharge = 0;
+    this.burnActiveInEncounter = false;
+    this.stunNextAttack = false;
+    this.lighthouseDefence = 0;
+    this.extraActionsThisTurn = 0;
     const next = this.encounters.advance();
     if (!next) {
       this.phase = "victory";
@@ -345,7 +370,10 @@ export class GameState {
   }
 
   private applyLighthouseDamage(amount: number): void {
-    this.health = Math.max(0, this.health - amount);
+    const reduction = Math.min(this.lighthouseDefence, amount);
+    this.lighthouseDefence -= reduction;
+    const dealt = amount - reduction;
+    this.health = Math.max(0, this.health - dealt);
   }
 
   private applySanityDamage(amount: number): void {
@@ -363,7 +391,22 @@ export class GameState {
         this.fuel += delta;
         return { id: spell.id, fuelDelta: delta };
       }
-      default:
+      case "calm": {
+        const before = this.sanity;
+        this.sanity = Math.min(INITIAL_SANITY, this.sanity + 2);
+        return { id: spell.id, sanityDelta: this.sanity - before };
+      }
+      case "shroud":
+        this.lighthouseDefence += 1;
+        return { id: spell.id };
+      case "confusion":
+        this.stunNextAttack = true;
+        return { id: spell.id };
+      case "burn":
+        this.burnActiveInEncounter = true;
+        return { id: spell.id };
+      case "extend":
+        this.extraActionsThisTurn += 1;
         return { id: spell.id };
     }
   }

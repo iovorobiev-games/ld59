@@ -81,6 +81,7 @@ export class GameScene extends Phaser.Scene {
     this.refreshViews();
     const initSnap = this.state.snapshot();
     this.prevLightOn = initSnap.lightOn;
+    this.spellList.setKnown(initSnap.knownSpellIds);
     this.spellList.setSequence(initSnap.spellSequence);
     this.card.show(initSnap.topCard);
   }
@@ -125,6 +126,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateTurnIndicator();
+    this.spellList.setKnown(snap.knownSpellIds);
     this.spellList.setSequence(snap.spellSequence);
 
     const continueResolution = () => {
