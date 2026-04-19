@@ -20,6 +20,12 @@ const DOT_ON_COLOR = 0xffd27a;
 const DOT_OFF_COLOR = 0x444455;
 const DOT_EMPTY_COLOR = 0x2a2a3a;
 
+// Bottom panel renders above the SignalListView paper (depths 4/5) so the
+// paper never peeks into the bottom half of the screen. Card-follow hints keep
+// their higher depth so they read above the panel body.
+const PANEL_BASE_DEPTH = 6;
+const PANEL_HINT_DEPTH = 10;
+
 export class BottomPanel {
   private scene: Phaser.Scene;
   private sanityText: Phaser.GameObjects.Text;
@@ -54,36 +60,47 @@ export class BottomPanel {
 
     scene.add
       .image(0, panelTopY + panelHeight, "dark_light_bg")
-      .setOrigin(0, 1);
+      .setOrigin(0, 1)
+      .setDepth(PANEL_BASE_DEPTH);
 
     const highlightTop = panelTopY + PANEL_TOP_TRANSPARENT;
     const highlightHeight = panelHeight - PANEL_TOP_TRANSPARENT;
     this.sanityHighlight = scene.add
       .rectangle(0, highlightTop, halfW, highlightHeight, SANITY_HIGHLIGHT, 0)
-      .setOrigin(0);
+      .setOrigin(0)
+      .setDepth(PANEL_BASE_DEPTH);
     this.fuelHighlight = scene.add
       .rectangle(halfW, highlightTop, halfW, highlightHeight, FUEL_HIGHLIGHT, 0)
-      .setOrigin(0);
+      .setOrigin(0)
+      .setDepth(PANEL_BASE_DEPTH);
 
     createText(scene, halfW / 2, panelTopY + 60, "SANITY", {
       fontSize: "36px",
       color: "#b0a6ff",
-    }).setOrigin(0.5);
+    })
+      .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
 
     this.sanityText = createText(scene, halfW / 2, panelTopY + 120, "10", {
       fontSize: "96px",
       color: "#ffffff",
-    }).setOrigin(0.5);
+    })
+      .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
 
     createText(scene, halfW + halfW / 2, panelTopY + 60, "FUEL", {
       fontSize: "36px",
       color: "#4a2a08",
-    }).setOrigin(0.5);
+    })
+      .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
 
     this.fuelText = createText(scene, halfW + halfW / 2, panelTopY + 120, "10", {
       fontSize: "96px",
       color: "#2a1a0a",
-    }).setOrigin(0.5);
+    })
+      .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
 
     createText(
       scene,
@@ -91,7 +108,9 @@ export class BottomPanel {
       panelTopY + panelHeight - 50,
       "← turn off light",
       { fontSize: "26px", color: "#b0a6ff" },
-    ).setOrigin(0.5);
+    )
+      .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
 
     createText(
       scene,
@@ -99,7 +118,9 @@ export class BottomPanel {
       panelTopY + panelHeight - 50,
       "burn fuel →",
       { fontSize: "26px", color: "#4a2a08" },
-    ).setOrigin(0.5);
+    )
+      .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
 
     // Impact hints sit just beside the card and follow it during drag.
     this.leftImpact = createText(scene, 0, cardCenterY + 40, "-1 Sanity", {
@@ -108,7 +129,7 @@ export class BottomPanel {
     })
       .setOrigin(1, 0.5)
       .setAlpha(0)
-      .setDepth(10);
+      .setDepth(PANEL_HINT_DEPTH);
 
     this.rightImpact = createText(scene, 0, cardCenterY + 40, "-1 Fuel", {
       fontSize: "32px",
@@ -116,7 +137,7 @@ export class BottomPanel {
     })
       .setOrigin(0, 0.5)
       .setAlpha(0)
-      .setDepth(10);
+      .setDepth(PANEL_HINT_DEPTH);
 
     this.leftEffect = createText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
@@ -125,7 +146,7 @@ export class BottomPanel {
     })
       .setOrigin(1, 0.5)
       .setAlpha(0)
-      .setDepth(10);
+      .setDepth(PANEL_HINT_DEPTH);
 
     this.rightEffect = createText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
@@ -134,7 +155,7 @@ export class BottomPanel {
     })
       .setOrigin(0, 0.5)
       .setAlpha(0)
-      .setDepth(10);
+      .setDepth(PANEL_HINT_DEPTH);
 
     this.leftReward = createText(scene, 0, cardCenterY + 90, "", {
       fontSize: "26px",
@@ -143,7 +164,7 @@ export class BottomPanel {
     })
       .setOrigin(1, 0)
       .setAlpha(0)
-      .setDepth(10);
+      .setDepth(PANEL_HINT_DEPTH);
 
     this.rightReward = createText(scene, 0, cardCenterY + 90, "", {
       fontSize: "26px",
@@ -152,7 +173,7 @@ export class BottomPanel {
     })
       .setOrigin(0, 0)
       .setAlpha(0)
-      .setDepth(10);
+      .setDepth(PANEL_HINT_DEPTH);
 
     // Signal progress dots sit inline at the end of each effect hint, mirroring
     // SignalListView's CURRENT indicator so the visual language stays consistent.
@@ -163,14 +184,14 @@ export class BottomPanel {
         scene.add
           .circle(0, dotsY, DOT_RADIUS, DOT_EMPTY_COLOR)
           .setStrokeStyle(1, 0x101018)
-          .setDepth(10)
+          .setDepth(PANEL_HINT_DEPTH)
           .setAlpha(0),
       );
       this.rightSignalDots.push(
         scene.add
           .circle(0, dotsY, DOT_RADIUS, DOT_EMPTY_COLOR)
           .setStrokeStyle(1, 0x101018)
-          .setDepth(10)
+          .setDepth(PANEL_HINT_DEPTH)
           .setAlpha(0),
       );
     }

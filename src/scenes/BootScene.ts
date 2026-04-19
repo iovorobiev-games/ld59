@@ -26,6 +26,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image("fog", "sprites/fog.png");
     this.load.image("siren", "sprites/siren.png");
     this.load.image("ghost_ship", "sprites/ghost_ship.png");
+    this.load.image("signals_list", "sprites/signals_list.png");
 
     this.load.audio("ambient", "audio/ambient.wav");
     this.load.audio("hitHurt", "audio/hitHurt.wav");
