@@ -32,11 +32,12 @@ const KNOCK_COUNT = 3;
 const TYPEWRITER_CHAR_MS = 35;
 const SYNTH_EVERY_N_CHARS = 3;
 
-// Fisher has no dedicated sprite yet — reuse bandit art until one is added.
 const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
   wizard: "wizard",
-  bandit: "bandit",
-  fisher: "bandit",
+  bandit: "rogue",
+  fisher: "fisher",
+  guard: "guard",
+  ghost: "ghost",
 };
 
 const TEXT_TOP = CUTOUT_BOTTOM + 60;

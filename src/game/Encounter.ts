@@ -55,7 +55,12 @@ export function describeFriendlyReward(reward: FriendlyReward): string {
 
 export type FriendlyOutcome = "progress" | "success" | "fail";
 
-export type FriendlyCharacter = "wizard" | "bandit" | "fisher";
+export type FriendlyCharacter =
+  | "wizard"
+  | "bandit"
+  | "fisher"
+  | "guard"
+  | "ghost";
 
 export interface FriendlyLabels {
   left: string;

@@ -55,33 +55,6 @@ export class DealDamageAbility implements Ability {
   }
 }
 
-export class DealSanityDamageAbility implements Ability {
-  readonly name: string;
-
-  constructor(private readonly damage: number) {
-    this.name = `Madden ${damage}`;
-  }
-
-  getIntent(): AbilityIntent {
-    return {
-      icon: "\u2726",
-      label: "Madden",
-      value: this.damage,
-      description: `Erodes your sanity by ${this.damage}.`,
-    };
-  }
-
-  use(ctx: AbilityContext): AbilityEvent {
-    ctx.target.takeSanityDamage(this.damage);
-    return {
-      ability: this.name,
-      rawDamage: this.damage,
-      blocked: 0,
-      dealt: this.damage,
-    };
-  }
-}
-
 export class VampiricSanityAbility implements Ability {
   readonly name: string;
 

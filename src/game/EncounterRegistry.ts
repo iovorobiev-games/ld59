@@ -32,7 +32,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
   ghost: () =>
     new StoryEncounter({
       text: "It's because of you our ship crashed!\nI died because of you!",
-      character: "wizard",
+      character: "ghost",
       consequence: { sanity: -2 },
       nextOnSuccess: "guardsman",
     }),
@@ -44,7 +44,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
       successText:
         "Thank you. Here is some fuel\nfor your effort.\n+2 Fuel  +2 Sanity",
       failureText: "I guess I need to ask someone else...",
-      character: "wizard",
+      character: "guard",
       greeting:
         "Couple of thugs looking to\nattack ships nearby.\nBlink the light if you know anything.",
       nextOnSuccess: "bandits_revenge",
