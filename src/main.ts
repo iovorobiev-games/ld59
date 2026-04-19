@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import BBCodeTextPlugin from "phaser3-rex-plugins/plugins/bbcodetext-plugin.js";
 import { loadGameFont } from "./ui/fonts";
 import { SplashScene } from "./scenes/SplashScene";
 import { BootScene } from "./scenes/BootScene";
@@ -20,6 +21,15 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: 1920,
     height: 1080,
+  },
+  plugins: {
+    global: [
+      {
+        key: "rexBBCodeTextPlugin",
+        plugin: BBCodeTextPlugin,
+        start: true,
+      },
+    ],
   },
   render: {
     roundPixels: true,

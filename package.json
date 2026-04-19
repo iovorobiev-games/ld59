@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "phaser": "^3.87.0"
+    "phaser": "^3.87.0",
+    "phaser3-rex-plugins": "^1.80.20"
   },
   "devDependencies": {
     "puppeteer": "^24.37.3",

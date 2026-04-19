@@ -1,6 +1,7 @@
 import Phaser from "phaser";
+import BBCodeText from "phaser3-rex-plugins/plugins/gameobjects/tagtext/bbcodetext/BBCodeText";
 import { LightState, SIGNAL_SEQUENCE_LENGTH } from "../game/Signal";
-import { createText } from "./fonts";
+import { createBBCodeText, createText } from "./fonts";
 
 const SANITY_HIGHLIGHT = 0x6f5fff;
 const FUEL_HIGHLIGHT = 0xffb030;
@@ -34,8 +35,8 @@ export class BottomPanel {
   private fuelHighlight: Phaser.GameObjects.Rectangle;
   private leftImpact: Phaser.GameObjects.Text;
   private rightImpact: Phaser.GameObjects.Text;
-  private leftEffect: Phaser.GameObjects.Text;
-  private rightEffect: Phaser.GameObjects.Text;
+  private leftEffect: BBCodeText;
+  private rightEffect: BBCodeText;
   private leftReward: Phaser.GameObjects.Text;
   private rightReward: Phaser.GameObjects.Text;
   private cardCenterX: number;
@@ -139,7 +140,7 @@ export class BottomPanel {
       .setAlpha(0)
       .setDepth(PANEL_HINT_DEPTH);
 
-    this.leftEffect = createText(scene, 0, cardCenterY - 10, "", {
+    this.leftEffect = createBBCodeText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
       color: "#b0a6ff",
       align: "right",
@@ -148,7 +149,7 @@ export class BottomPanel {
       .setAlpha(0)
       .setDepth(PANEL_HINT_DEPTH);
 
-    this.rightEffect = createText(scene, 0, cardCenterY - 10, "", {
+    this.rightEffect = createBBCodeText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
       color: "#4a2a08",
       align: "center",

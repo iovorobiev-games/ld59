@@ -203,10 +203,6 @@ export class FriendlyEncounter implements Encounter {
     return this.progress;
   }
 
-  describeSequence(): string {
-    return this.sequence.map((d) => (d === "left" ? "OFF" : "ON")).join(" ");
-  }
-
   describeReward(): string {
     return describeFriendlyReward(this.reward);
   }
@@ -291,7 +287,7 @@ export interface TeachingEncounterConfig {
 }
 
 const DEFAULT_TEACHING_GREETING =
-  "Blinding Abyss offered new Spells.\nSend me a signal and I shall cast one.";
+  "I've glimpsed two new Spells.\nSignal which to learn:";
 const DEFAULT_TEACHING_FAILURE =
   "Nah — signal A or signal B.";
 

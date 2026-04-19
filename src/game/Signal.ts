@@ -26,8 +26,31 @@ export function sequencesMatch(
   return true;
 }
 
+// Legacy plain-text formatter (for any non-BBCode consumer / logs).
 export function formatSignal(seq: readonly LightState[]): string {
   return seq.map((s) => (s === "on" ? "ON" : "OFF")).join(" ");
+}
+
+// Lit/unlit icons for rexBBCodeText. "[img=key][/img]" is the tag shape the
+// plugin expects; renderers must be BBCodeText instances with the lit/unlit
+// icons registered (see signalIconImages in ui/fonts.ts).
+export const BB_ICON_LIT = "[img=lit][/img]";
+export const BB_ICON_UNLIT = "[img=unlit][/img]";
+
+export function signalIconFor(state: LightState): string {
+  return state === "on" ? BB_ICON_LIT : BB_ICON_UNLIT;
+}
+
+export function formatSignalBBCode(seq: readonly LightState[]): string {
+  return seq.map(signalIconFor).join(" ");
+}
+
+// A "blink" is a toggle + back; the starting state drives the icon order so
+// the dialog pair matches the sequence the player will actually perform.
+export function blinkIconsFor(startingLightOn: boolean): string {
+  return startingLightOn
+    ? `${BB_ICON_UNLIT}${BB_ICON_LIT}`
+    : `${BB_ICON_LIT}${BB_ICON_UNLIT}`;
 }
 
 export function signalFuelCost(signal: Signal): number {
