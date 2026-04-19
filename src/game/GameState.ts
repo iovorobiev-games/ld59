@@ -326,9 +326,6 @@ export class GameState {
     if (currentEnc instanceof TutorialEncounter) {
       return this.playTutorialCard(currentEnc, direction);
     }
-    if (this.combatTutorial && currentEnc instanceof UnfriendlyEncounter) {
-      return this.playCombatTutorialCard(currentEnc, direction);
-    }
 
     if (direction === "left") {
       this.sanity = Math.max(0, this.sanity - 1);
@@ -381,6 +378,8 @@ export class GameState {
         result.friendlyMessageKind = "success";
       }
     }
+
+    this.combatTutorial?.handleSwipe(direction);
 
     this.cardsThisTurn += 1;
     this.current = this.supplier.draw();
@@ -516,39 +515,11 @@ export class GameState {
     return result;
   }
 
-  private playCombatTutorialCard(
-    enc: UnfriendlyEncounter,
-    direction: SwipeDirection,
-  ): PlayCardResult {
-    if (direction === "left") {
-      this.sanity = Math.max(0, this.sanity - 1);
-      this.lightOn = false;
-    } else {
-      this.fuel = Math.max(0, this.fuel - this.lightFuelCost);
-      this.lightOn = true;
-    }
-    const card: CardPlayEffect = {};
-    const result: PlayCardResult = { card };
-    if (direction === "right") {
-      const absorbed = enc.enemy.absorbDamage(1);
-      const dealt = 1 - absorbed;
-      if (dealt > 0) enc.enemy.takeDamage(dealt);
-      card.damageDealt = dealt;
-    } else {
-      this.lighthouseArmor += 1;
-      card.reductionAdded = 1;
-    }
-    this.combatTutorial?.handleSwipe(direction);
-    this.current = this.supplier.draw();
-    return result;
-  }
-
   combatTutorialAutoAdvance(): void {
     if (!this.combatTutorial) return;
     this.combatTutorial.autoAdvance();
     if (this.combatTutorial.isDone()) {
       this.combatTutorial = null;
-      this.cardsThisTurn = 0;
     }
   }
 

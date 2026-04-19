@@ -4,6 +4,7 @@ export type CombatTutorialPhase =
   | "intro"
   | "instruct_left"
   | "instruct_right"
+  | "turn_warning"
   | "outro"
   | "bye"
   | "done";
@@ -14,6 +15,8 @@ const LINES: Record<CombatTutorialPhase, string> = {
     "Swipe left to protect\nthe lighthouse from\nthe damage.",
   instruct_right:
     "Great! Swipe right\nto damage the monster\nwith the light!",
+  turn_warning:
+    "When you run out of cards,\nthe turn goes to your enemy.\nBe careful.",
   outro:
     "Alright, I think you can\ndo great on your own now.\nRemember our magic fuel signal!",
   bye: "Bye!",
@@ -49,7 +52,7 @@ export class CombatTutorial {
     if (this.phase === "instruct_left" && direction === "left") {
       this.phase = "instruct_right";
     } else if (this.phase === "instruct_right" && direction === "right") {
-      this.phase = "outro";
+      this.phase = "turn_warning";
     }
   }
 
@@ -57,6 +60,9 @@ export class CombatTutorial {
     switch (this.phase) {
       case "intro":
         this.phase = "instruct_left";
+        return;
+      case "turn_warning":
+        this.phase = "outro";
         return;
       case "outro":
         this.phase = "bye";

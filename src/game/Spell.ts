@@ -75,6 +75,6 @@ export const ALL_SPELLS: readonly Spell[] = [
     id: "extend",
     name: "Extend",
     sequence: ["on", "off", "off"],
-    description: "+1 action this turn",
+    description: "Add 1 extra card to your deck this turn.",
   },
 ];
