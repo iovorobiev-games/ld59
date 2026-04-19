@@ -8,6 +8,7 @@ import {
   FriendlyEncounter,
   FriendlyOutcome,
   FriendlyReward,
+  NightEncounter,
   StoryConsequence,
   StoryEncounter,
   SwipeDirection,
@@ -74,6 +75,7 @@ export interface EncounterSnapshot {
   combatTutorialText?: string;
   combatTutorialWaitsForPlayer?: boolean;
   combatTutorialExpectedDirection?: SwipeDirection;
+  nightNumber?: number;
 }
 
 export interface GameStateSnapshot {
@@ -173,6 +175,9 @@ export class GameState {
     this.signalBook = new SignalBook(opts.knownSignalIds ?? []);
     this.materializeIfDeferred();
     this.ensureAffordableFriendly();
+    if (this.encounters.current() instanceof NightEncounter) {
+      this.phase = "transitioning";
+    }
     this.rollIntentIfUnfriendly();
   }
 
@@ -192,7 +197,7 @@ export class GameState {
   private queueChainFollowup(resolved: Encounter): void {
     const nextId = resolved.getNextEncounterId?.();
     if (!nextId) return;
-    this.encounters.insertRandomAfterCurrent(new DeferredEncounter(nextId));
+    this.encounters.replaceUpcomingFriendly(new DeferredEncounter(nextId));
   }
 
   snapshot(): GameStateSnapshot {
@@ -276,6 +281,9 @@ export class GameState {
         outcomeLeftLabel: enc.leftLabel,
         outcomeRightLabel: enc.rightLabel,
       };
+    }
+    if (enc instanceof NightEncounter) {
+      return { ...base, nightNumber: enc.nightNumber };
     }
     if (enc instanceof TutorialEncounter) {
       const snap: EncounterSnapshot = {
@@ -457,6 +465,12 @@ export class GameState {
       this.phase = "victory";
       return;
     }
+    if (next instanceof NightEncounter) {
+      // Keep phase as "transitioning" so the card is locked while the
+      // "Night X" overlay plays. GameScene calls acknowledgeNight() +
+      // advanceEncounter() again once the player dismisses the overlay.
+      return;
+    }
     this.materializeIfDeferred();
     this.ensureAffordableFriendly();
     this.phase = "player";
@@ -469,6 +483,17 @@ export class GameState {
       this.pendingCombatTutorial = false;
     }
     this.rollIntentIfUnfriendly();
+  }
+
+  acknowledgeNight(): void {
+    const enc = this.encounters.current();
+    if (enc instanceof NightEncounter) enc.resolve();
+    // Rest between nights: sanity and fuel refill to their starting caps.
+    // The keeper sleeps through the day, recovering the mind and restocking
+    // the lamp before the next night's horrors begin.
+    this.sanity = INITIAL_SANITY;
+    this.fuel = INITIAL_FUEL;
+    this.phase = "transitioning";
   }
 
   resolveStoryEncounter(): PlayCardResult {
