@@ -52,15 +52,23 @@ export interface EncounterSnapshot {
   friendlyRewardText?: string;
   friendlyCharacter?: FriendlyCharacter;
   friendlyGreeting?: string;
+  friendlyAgreeDirection?: SwipeDirection;
+  outcomeLeftLabel?: string;
+  outcomeRightLabel?: string;
+  outcomeLeftReward?: string;
+  outcomeRightReward?: string;
   teachingOffered?: readonly [Spell, Spell];
   teachingStatus?: TeachingStatus;
   teachingFailureText?: string;
+  teachingSignal?: readonly LightState[];
   storyText?: string;
   storyCharacter?: FriendlyCharacter;
   tutorialPhase?: TutorialPhase;
   tutorialText?: string;
   tutorialWaitsForPlayer?: boolean;
   tutorialShowRightHint?: boolean;
+  tutorialSignal?: readonly LightState[];
+  tutorialExpectedDirection?: SwipeDirection;
   combatTutorialPhase?: CombatTutorialPhase;
   combatTutorialText?: string;
   combatTutorialWaitsForPlayer?: boolean;
@@ -231,6 +239,7 @@ export class GameState {
       return snap;
     }
     if (enc instanceof FriendlyEncounter) {
+      const labels = enc.currentLabels(this.lightOn);
       return {
         ...base,
         friendlySequence: [...enc.sequence],
@@ -238,6 +247,11 @@ export class GameState {
         friendlyRewardText: enc.describeReward(),
         friendlyCharacter: enc.character,
         friendlyGreeting: enc.greeting,
+        friendlyAgreeDirection: enc.agreeDirection(),
+        outcomeLeftLabel: labels.left,
+        outcomeRightLabel: labels.right,
+        outcomeLeftReward: enc.rewardFor("left"),
+        outcomeRightReward: enc.rewardFor("right"),
       };
     }
     if (enc instanceof TeachingEncounter) {
@@ -248,6 +262,7 @@ export class GameState {
         teachingOffered: enc.offered,
         teachingStatus: enc.currentStatus(),
         teachingFailureText: enc.failureText,
+        teachingSignal: enc.getSignal(),
       };
     }
     if (enc instanceof StoryEncounter) {
@@ -255,16 +270,24 @@ export class GameState {
         ...base,
         storyText: enc.text,
         storyCharacter: enc.character,
+        outcomeLeftLabel: enc.leftLabel,
+        outcomeRightLabel: enc.rightLabel,
       };
     }
     if (enc instanceof TutorialEncounter) {
-      return {
+      const snap: EncounterSnapshot = {
         ...base,
         tutorialPhase: enc.currentPhase(),
         tutorialText: enc.text(),
         tutorialWaitsForPlayer: enc.waitsForPlayer(),
         tutorialShowRightHint: enc.showsRightHint(),
       };
+      if (enc.isSignalPhase()) {
+        snap.tutorialSignal = enc.getSignal();
+        const dir = enc.expectedDirection();
+        if (dir) snap.tutorialExpectedDirection = dir;
+      }
+      return snap;
     }
     return base;
   }

@@ -72,6 +72,8 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
     character: "fisher",
     greeting:
       "You mind dim the light for a while?\nFish is skittish these days.",
+    leftLabel: "Dim",
+    rightLabel: "Refuse",
   },
   {
     sequence: ["right", "right"],
@@ -82,6 +84,8 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
     character: "fisher",
     greeting:
       "My granddaughter is lost in the woods.\nPlease keep the lights on\nso she can find the way back.",
+    leftLabel: "Refuse",
+    rightLabel: "Help",
   },
 ];
 
@@ -96,6 +100,8 @@ function createLootFisher(): FriendlyEncounter {
     character: "fisher",
     greeting:
       "Here are the parts of\nthe abomination you slain.\nMaybe you can burn it for light.",
+    leftLabel: "Take",
+    rightLabel: "Take",
   });
 }
 
@@ -113,6 +119,9 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
     nextOnFailure: cfg.nextOnFailure,
     acceptAny: cfg.acceptAny,
     failureReward: cfg.failureReward ? { ...cfg.failureReward } : undefined,
+    leftLabel: cfg.leftLabel,
+    rightLabel: cfg.rightLabel,
+    labelsForLight: cfg.labelsForLight,
   });
 }
 
