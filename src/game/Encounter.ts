@@ -1,5 +1,11 @@
 import { Enemy } from "./Enemy";
-import { LightState, SIGNAL_SEQUENCE_LENGTH, Signal, sequencesMatch } from "./Signal";
+import {
+  LightState,
+  SIGNAL_SEQUENCE_LENGTH,
+  Signal,
+  SignalId,
+  sequencesMatch,
+} from "./Signal";
 
 export type EncounterKind =
   | "friendly"
@@ -99,6 +105,10 @@ export interface FriendlyEncounterConfig {
   // Flags to merge into GameState storyFlags when the encounter resolves.
   successFlags?: Record<string, boolean>;
   failureFlags?: Record<string, boolean>;
+  // When set, success fires the moment this signal is cast in-encounter
+  // (the SignalBook is a sliding window, so it may fire on fewer ONs than
+  // the sequence length). OFF still fails on the spot.
+  resolveOnSignal?: SignalId;
 }
 
 export interface FriendlyStepResult {
@@ -128,8 +138,10 @@ export class FriendlyEncounter implements Encounter {
   readonly offProgress: boolean;
   readonly successFlags: Record<string, boolean>;
   readonly failureFlags: Record<string, boolean>;
+  readonly resolveOnSignal?: SignalId;
   private progress = 0;
   private failed = false;
+  private succeededBySignal = false;
 
   constructor(config: FriendlyEncounterConfig) {
     this.sequence = config.sequence;
@@ -151,6 +163,15 @@ export class FriendlyEncounter implements Encounter {
     this.offProgress = config.offProgress ?? false;
     this.successFlags = config.successFlags ?? {};
     this.failureFlags = config.failureFlags ?? {};
+    this.resolveOnSignal = config.resolveOnSignal;
+  }
+
+  // Called by GameState after SignalBook.recordAndMatch, before notePlayed.
+  // If we're waiting on a specific signal and it just fired, arm the success
+  // outcome so the next notePlayed() returns "success".
+  noteSignalCast(id: SignalId | null | undefined): void {
+    if (!this.resolveOnSignal || this.isResolved()) return;
+    if (id === this.resolveOnSignal) this.succeededBySignal = true;
   }
 
   currentLabels(lightOn: boolean): FriendlyLabels {
@@ -184,6 +205,21 @@ export class FriendlyEncounter implements Encounter {
     if (this.isResolved()) {
       return { outcome: this.failed ? "fail" : "success" };
     }
+    if (this.resolveOnSignal) {
+      if (direction === "left") {
+        this.failed = true;
+        return { outcome: "fail" };
+      }
+      const stepIdx = this.progress;
+      if (this.progress < this.sequence.length) this.progress += 1;
+      const progressText = this.progressTexts[stepIdx];
+      const shake = this.shakeOnFinalStep && this.succeededBySignal;
+      return {
+        outcome: this.succeededBySignal ? "success" : "progress",
+        progressText,
+        shake,
+      };
+    }
     if (!this.acceptAny) {
       const expected = this.sequence[this.progress];
       if (direction !== expected) {
@@ -204,7 +240,9 @@ export class FriendlyEncounter implements Encounter {
   }
 
   isResolved(): boolean {
-    return this.failed || this.progress >= this.sequence.length;
+    if (this.failed) return true;
+    if (this.resolveOnSignal) return this.succeededBySignal;
+    return this.progress >= this.sequence.length;
   }
 
   didFail(): boolean {
