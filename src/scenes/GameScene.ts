@@ -102,7 +102,9 @@ export class GameScene extends Phaser.Scene {
       dimX: 0,
       dimY: 0,
       dimWidth: width,
-      dimHeight: panelTop,
+      // Extend past the transparent strip at the top of the bottom panel so
+      // the dim flush-meets the visible panel edge.
+      dimHeight: panelTop + PANEL_TOP_TRANSPARENT,
       textX: width / 2,
       textY: panelTop / 2,
     });
