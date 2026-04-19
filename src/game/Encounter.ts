@@ -1,5 +1,5 @@
 import { Enemy } from "./Enemy";
-import { LightState, SPELL_SEQUENCE_LENGTH, Spell, sequencesMatch } from "./Spell";
+import { LightState, SIGNAL_SEQUENCE_LENGTH, Signal, sequencesMatch } from "./Signal";
 
 export type EncounterKind =
   | "friendly"
@@ -276,24 +276,24 @@ export class DeferredEncounter implements Encounter {
 export type TeachingStatus = "idle" | "mistake" | "learned";
 
 export interface TeachingEncounterConfig {
-  offered: readonly [Spell, Spell];
+  offered: readonly [Signal, Signal];
   greeting?: string;
   failureText?: string;
 }
 
 const DEFAULT_TEACHING_GREETING =
-  "A blinding abyss offered new spells.\nSend me a signal and I shall cast one.";
+  "A blinding abyss offered new signals.\nSend me a signal and I shall cast one.";
 const DEFAULT_TEACHING_FAILURE =
-  "Nah — signal for spell A or signal for spell B.";
+  "Nah — signal A or signal B.";
 
 export class TeachingEncounter implements Encounter {
   readonly kind = "friendly" as const;
   readonly character: FriendlyCharacter = "wizard";
-  readonly offered: readonly [Spell, Spell];
+  readonly offered: readonly [Signal, Signal];
   readonly greeting: string;
   readonly failureText: string;
   private buffer: LightState[] = [];
-  private learnedSpell: Spell | null = null;
+  private learnedSignal: Signal | null = null;
   private status: TeachingStatus = "idle";
 
   constructor(config: TeachingEncounterConfig) {
@@ -304,16 +304,16 @@ export class TeachingEncounter implements Encounter {
 
   notePlayed(state: LightState): TeachingStatus {
     this.buffer.push(state);
-    if (this.buffer.length > SPELL_SEQUENCE_LENGTH) {
-      this.buffer.splice(0, this.buffer.length - SPELL_SEQUENCE_LENGTH);
+    if (this.buffer.length > SIGNAL_SEQUENCE_LENGTH) {
+      this.buffer.splice(0, this.buffer.length - SIGNAL_SEQUENCE_LENGTH);
     }
-    if (this.buffer.length < SPELL_SEQUENCE_LENGTH) {
+    if (this.buffer.length < SIGNAL_SEQUENCE_LENGTH) {
       this.status = "idle";
       return "idle";
     }
-    for (const spell of this.offered) {
-      if (sequencesMatch(this.buffer, spell.sequence)) {
-        this.learnedSpell = spell;
+    for (const signal of this.offered) {
+      if (sequencesMatch(this.buffer, signal.sequence)) {
+        this.learnedSignal = signal;
         this.status = "learned";
         return "learned";
       }
@@ -330,17 +330,17 @@ export class TeachingEncounter implements Encounter {
     return this.buffer;
   }
 
-  getLearned(): Spell | null {
-    return this.learnedSpell;
+  getLearned(): Signal | null {
+    return this.learnedSignal;
   }
 
   isResolved(): boolean {
-    return this.learnedSpell !== null;
+    return this.learnedSignal !== null;
   }
 }
 
 // Placeholder inserted at deck build time. GameState replaces it with a real
-// TeachingEncounter generated from the player's current unknown spells & fuel,
+// TeachingEncounter generated from the player's current unknown signals & fuel,
 // or swaps it for a regular FriendlyEncounter if teaching isn't feasible.
 export class WizardTeachingPlaceholder implements Encounter {
   readonly kind = "friendly" as const;

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { LightState, SPELL_SEQUENCE_LENGTH } from "../game/Spell";
+import { LightState, SIGNAL_SEQUENCE_LENGTH } from "../game/Signal";
 import { createText } from "./fonts";
 
 const SANITY_HIGHLIGHT = 0x6f5fff;
@@ -12,7 +12,7 @@ const CARD_HALF_WIDTH = 124;
 const HINT_PAD = 30;
 export const PANEL_TOP_TRANSPARENT = 44;
 
-// Matches SpellListView's CURRENT-signal dot styling so the player reads the
+// Matches SignalListView's CURRENT-signal dot styling so the player reads the
 // same visual language across both surfaces.
 const DOT_RADIUS = 6;
 const DOT_SPACING = 18;
@@ -155,10 +155,10 @@ export class BottomPanel {
       .setDepth(10);
 
     // Signal progress dots sit inline at the end of each effect hint, mirroring
-    // SpellListView's CURRENT indicator so the visual language stays consistent.
+    // SignalListView's CURRENT indicator so the visual language stays consistent.
     // Position is set each frame in setSwipeHint so the dots follow the card.
     const dotsY = cardCenterY - 10;
-    for (let i = 0; i < SPELL_SEQUENCE_LENGTH; i++) {
+    for (let i = 0; i < SIGNAL_SEQUENCE_LENGTH; i++) {
       this.leftSignalDots.push(
         scene.add
           .circle(0, dotsY, DOT_RADIUS, DOT_EMPTY_COLOR)
@@ -328,7 +328,7 @@ export class BottomPanel {
     const dotPad = 12;
     const leftTextLeftEdge = leftX - this.leftEffect.width;
     const leftDotsStart =
-      leftTextLeftEdge - dotPad - (SPELL_SEQUENCE_LENGTH - 1) * DOT_SPACING;
+      leftTextLeftEdge - dotPad - (SIGNAL_SEQUENCE_LENGTH - 1) * DOT_SPACING;
     this.leftSignalDots.forEach((dot, i) => {
       dot.x = leftDotsStart + i * DOT_SPACING;
       dot.setAlpha(leftSignalAlpha);

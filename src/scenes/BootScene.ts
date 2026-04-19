@@ -9,6 +9,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image("card", "sprites/card.png");
     this.load.image("dark_light_bg", "sprites/dark_light_bg.png");
     this.load.image("lighthouse", "sprites/lighthouse.png");
+    this.load.image("lit", "sprites/lit.png");
+    this.load.image("unlit", "sprites/unlit.png");
     this.load.image("rock", "sprites/rock.png");
     this.load.image("tentacle", "sprites/tentacle.png");
     this.load.image("door", "sprites/door.png");
