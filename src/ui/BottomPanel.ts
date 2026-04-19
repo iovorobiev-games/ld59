@@ -195,7 +195,11 @@ export class BottomPanel {
     });
   }
 
-  setSwipeHint(dragOffset: number, fuelAvailable: boolean): void {
+  setSwipeHint(
+    dragOffset: number,
+    fuelAvailable: boolean,
+    fuelCost: number,
+  ): void {
     const left = Math.max(0, -dragOffset);
     const right = Math.max(0, dragOffset);
     const leftAlpha = ramp(left);
@@ -212,7 +216,7 @@ export class BottomPanel {
     if (fuelAvailable) {
       this.fuelHighlight.fillColor = FUEL_HIGHLIGHT;
       this.fuelHighlight.fillAlpha = rightAlpha * 0.45;
-      this.rightImpact.setText("-1 Fuel").setColor("#4a2a08");
+      this.rightImpact.setText(`-${fuelCost} Fuel`).setColor("#4a2a08");
       this.rightEffect.setColor("#4a2a08");
     } else {
       this.fuelHighlight.fillColor = BLOCKED_HIGHLIGHT;

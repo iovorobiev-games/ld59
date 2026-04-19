@@ -50,10 +50,8 @@ export class DealDamageAbility implements Ability {
 
   use(ctx: AbilityContext): AbilityEvent {
     const raw = this.damage + ctx.source.damageBonus;
-    const reduction = ctx.source.consumeDamageReduction(raw);
-    const dealt = Math.max(0, raw - reduction);
-    if (dealt > 0) ctx.target.takeDamage(dealt);
-    return { ability: this.name, rawDamage: raw, blocked: reduction, dealt };
+    if (raw > 0) ctx.target.takeDamage(raw);
+    return { ability: this.name, rawDamage: raw, blocked: 0, dealt: raw };
   }
 }
 
@@ -122,14 +120,14 @@ export class DefendAbility implements Ability {
   getIntent(): AbilityIntent {
     return {
       icon: "\u26e8",
-      label: "Block",
+      label: "Armor",
       value: this.amount,
-      description: `Raises ${this.amount} block, reducing your next strike.`,
+      description: `Gains ${this.amount} armor, absorbing your next strikes.`,
     };
   }
 
   use(ctx: AbilityContext): AbilityEvent {
-    ctx.source.queueDamageReduction(this.amount);
+    ctx.source.addArmor(this.amount);
     return { ability: this.name, rawDamage: 0, blocked: 0, dealt: 0 };
   }
 }
