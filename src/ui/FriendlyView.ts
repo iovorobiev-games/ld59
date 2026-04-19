@@ -39,6 +39,13 @@ const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
   guard: "guard",
   ghost: "ghost",
   builder: "builder",
+  kid: "kid",
+};
+
+// Shorter characters drop below the cutout when centered on the adult line.
+// Nudge them down so the top of the head sits inside the cutout.
+const CHARACTER_Y_OFFSET: Partial<Record<FriendlyCharacter, number>> = {
+  kid: 40,
 };
 
 const CONTAINER_DEPTH = 3;
@@ -169,6 +176,7 @@ export class FriendlyView {
     if (character !== this.shownCharacter) {
       this.shownCharacter = character;
       this.character.setTexture(CHARACTER_TEXTURE[character]);
+      this.character.y = this.cutoutLocalY + (CHARACTER_Y_OFFSET[character] ?? 0);
       this.character.x = this.offscreenLocalX;
       this.character.setVisible(true);
       this.textBg.setVisible(true);

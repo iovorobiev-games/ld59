@@ -62,7 +62,8 @@ export type FriendlyCharacter =
   | "fisher"
   | "guard"
   | "ghost"
-  | "builder";
+  | "builder"
+  | "kid";
 
 export interface FriendlyLabels {
   left: string;
@@ -351,6 +352,16 @@ export class TeachingEncounter implements Encounter {
 // TeachingEncounter generated from the player's current unknown signals & fuel,
 // or swaps it for a regular FriendlyEncounter if teaching isn't feasible.
 export class WizardTeachingPlaceholder implements Encounter {
+  readonly kind = "friendly" as const;
+  isResolved(): boolean {
+    return false;
+  }
+}
+
+// Inserted at deck build time. GameState replaces it with the grandkid
+// encounter when the player knows the Lightning signal, or swaps it for a
+// regular filler friendly otherwise.
+export class GrandkidPlaceholder implements Encounter {
   readonly kind = "friendly" as const;
   isResolved(): boolean {
     return false;
