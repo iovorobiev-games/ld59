@@ -45,6 +45,7 @@ export interface EncounterSnapshot {
   enemyHealth?: number;
   enemyMaxHealth?: number;
   enemyArmor?: number;
+  enemySpriteKey?: string;
   lighthouseArmor?: number;
   enemyIntent?: AbilityIntent;
   friendlySequence?: SwipeDirection[];
@@ -226,6 +227,7 @@ export class GameState {
         enemyHealth: enc.enemy.health,
         enemyMaxHealth: enc.enemy.maxHealth,
         enemyArmor: enc.enemy.armor,
+        enemySpriteKey: enc.enemy.spriteKey,
         lighthouseArmor: this.lighthouseArmor,
         enemyIntent: enc.enemy.intentDisplay ?? undefined,
       };

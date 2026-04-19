@@ -14,6 +14,14 @@ export const DEFAULT_ENEMY_VISUAL: EnemyVisual = {
   spriteKey: "tentacle",
 };
 
+// Flying enemies anchor at the middle of the top half (sky) instead of screen
+// center so they read as airborne.
+const AERIAL_SPRITES: ReadonlySet<string> = new Set([
+  "winged_horror",
+  "siren",
+  "skywraith",
+]);
+
 export class EnemyView {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
@@ -24,6 +32,8 @@ export class EnemyView {
   private intentLabel: Phaser.GameObjects.Text;
   private healthBar: HealthBar;
   private bodyRestY: number;
+  private readonly groundedBodyRestY: number;
+  private readonly aerialBodyRestY: number;
   private healthBarWorldX: number;
   private healthBarWorldY: number;
   private oscillateTween?: Phaser.Tweens.Tween;
@@ -37,11 +47,14 @@ export class EnemyView {
     anchorX: number,
     groundY: number,
     bodyCenterY: number,
+    aerialCenterY: number,
   ) {
     this.scene = scene;
     this.container = scene.add.container(anchorX, groundY);
 
-    this.bodyRestY = bodyCenterY - groundY;
+    this.groundedBodyRestY = bodyCenterY - groundY;
+    this.aerialBodyRestY = aerialCenterY - groundY;
+    this.bodyRestY = this.groundedBodyRestY;
     this.body = scene.add
       .image(0, this.bodyRestY, DEFAULT_ENEMY_VISUAL.spriteKey)
       .setOrigin(0.5, 0.5);
@@ -111,6 +124,9 @@ export class EnemyView {
   show(name: string, health: number, maxHealth: number, visual?: Partial<EnemyVisual>): void {
     const v = { ...DEFAULT_ENEMY_VISUAL, ...visual };
     this.body.setTexture(v.spriteKey);
+    this.bodyRestY = AERIAL_SPRITES.has(v.spriteKey)
+      ? this.aerialBodyRestY
+      : this.groundedBodyRestY;
     this.nameLabel.setText(name);
     this.container.setVisible(true);
     this.healthBar.set(health, maxHealth);

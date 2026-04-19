@@ -70,7 +70,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.lighthouse = new LighthouseView(this, width, panelTop, height);
-    this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY, height / 2);
+    this.enemyView = new EnemyView(this, ENEMY_ANCHOR_X, groundY, height / 2, panelTop / 2);
     this.friendlyView = new FriendlyView(this, width, panelTop + PANEL_TOP_TRANSPARENT);
     this.panel = new BottomPanel(this, panelTop, width, PANEL_HEIGHT);
 
@@ -595,6 +595,7 @@ export class GameScene extends Phaser.Scene {
         enc.enemyName ?? "Abomination",
         enc.enemyHealth ?? 0,
         enc.enemyMaxHealth ?? 1,
+        enc.enemySpriteKey ? { spriteKey: enc.enemySpriteKey } : undefined,
       );
       this.enemyView.setArmor(enc.enemyArmor ?? 0);
       this.lighthouse.setArmor(enc.lighthouseArmor ?? 0);

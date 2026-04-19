@@ -1,6 +1,5 @@
 import {
   DealDamageAbility,
-  DealSanityDamageAbility,
   DefendAbility,
   FogAbility,
   RitualAbility,
@@ -132,6 +131,7 @@ function createTentacleEncounter(): UnfriendlyEncounter {
     new Enemy({
       name: "Tentacle",
       maxHealth: 5,
+      spriteKey: "tentacle",
       abilities: [
         new DealDamageAbility(1),
         new DealDamageAbility(2),
@@ -146,20 +146,9 @@ const ENEMY_POOL: EnemyFactory[] = [
   () =>
     new UnfriendlyEncounter(
       new Enemy({
-        name: "Sea Ghosts",
-        maxHealth: 5,
-        abilities: [
-          new DealDamageAbility(1),
-          new DealDamageAbility(2),
-          new DealSanityDamageAbility(2),
-        ],
-      }),
-    ),
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
         name: "Wings of Horror",
         maxHealth: 7,
+        spriteKey: "winged_horror",
         abilities: [
           new DealDamageAbility(1),
           new DealDamageAbility(2),
@@ -173,6 +162,7 @@ const ENEMY_POOL: EnemyFactory[] = [
       new Enemy({
         name: "Sky Wraith",
         maxHealth: 6,
+        spriteKey: "skywraith",
         abilities: [
           new DefendAbility(2),
           new DealDamageAbility(1),
@@ -185,6 +175,7 @@ const ENEMY_POOL: EnemyFactory[] = [
       new Enemy({
         name: "Fog of Darkness",
         maxHealth: 7,
+        spriteKey: "fog",
         abilities: [new DealDamageAbility(1), new FogAbility()],
       }),
     ),
@@ -193,6 +184,7 @@ const ENEMY_POOL: EnemyFactory[] = [
       new Enemy({
         name: "Sirens",
         maxHealth: 5,
+        spriteKey: "siren",
         abilities: [new DealDamageAbility(1), new RitualAbility()],
       }),
     ),
@@ -201,6 +193,7 @@ const ENEMY_POOL: EnemyFactory[] = [
       new Enemy({
         name: "Ghost Ship",
         maxHealth: 10,
+        spriteKey: "ghost_ship",
         abilities: [
           new DefendAbility(2),
           new DefendAbility(3),

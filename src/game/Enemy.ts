@@ -4,11 +4,13 @@ export interface EnemyConfig {
   name: string;
   maxHealth: number;
   abilities: Ability[];
+  spriteKey?: string;
 }
 
 export class Enemy {
   readonly name: string;
   readonly maxHealth: number;
+  readonly spriteKey?: string;
   private currentHealth: number;
   private readonly abilities: Ability[];
   private armorAmount = 0;
@@ -20,6 +22,7 @@ export class Enemy {
     this.maxHealth = config.maxHealth;
     this.currentHealth = config.maxHealth;
     this.abilities = config.abilities;
+    this.spriteKey = config.spriteKey;
   }
 
   get health(): number {
