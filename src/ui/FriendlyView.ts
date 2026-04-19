@@ -4,7 +4,7 @@ import {
   SwipeDirection,
   TeachingStatus,
 } from "../game/Encounter";
-import { Spell, formatSignal } from "../game/Spell";
+import { Signal, formatSignal } from "../game/Signal";
 import { createText } from "./fonts";
 import { TypewriterText } from "./TypewriterText";
 import { Sfx } from "../audio/Sfx";
@@ -118,7 +118,7 @@ export class FriendlyView {
   showTeaching(
     character: FriendlyCharacter,
     greeting: string,
-    offered: readonly [Spell, Spell],
+    offered: readonly [Signal, Signal],
     status: TeachingStatus,
     failureText: string,
   ): void {
@@ -176,7 +176,7 @@ export class FriendlyView {
 
   private buildTeachingText(
     greeting: string,
-    offered: readonly [Spell, Spell],
+    offered: readonly [Signal, Signal],
     status: TeachingStatus,
     failureText: string,
   ): string {

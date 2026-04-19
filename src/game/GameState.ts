@@ -24,12 +24,12 @@ import {
 import { createEncounterById } from "./EncounterRegistry";
 import {
   LightState,
-  Spell,
-  SpellId,
-  getSpell,
+  Signal,
+  SignalId,
+  getSignal,
   signalFuelCost,
-} from "./Spell";
-import { SpellBook } from "./SpellBook";
+} from "./Signal";
+import { SignalBook } from "./SignalBook";
 import { TutorialEncounter, TutorialPhase } from "./TutorialEncounter";
 import { CombatTutorial, CombatTutorialPhase } from "./CombatTutorial";
 
@@ -58,7 +58,7 @@ export interface EncounterSnapshot {
   outcomeRightLabel?: string;
   outcomeLeftReward?: string;
   outcomeRightReward?: string;
-  teachingOffered?: readonly [Spell, Spell];
+  teachingOffered?: readonly [Signal, Signal];
   teachingStatus?: TeachingStatus;
   teachingFailureText?: string;
   teachingSignal?: readonly LightState[];
@@ -88,12 +88,12 @@ export interface GameStateSnapshot {
   cardsPerTurn: number;
   lightFuelCost: number;
   encounter: EncounterSnapshot | null;
-  spellSequence: readonly LightState[];
-  knownSpellIds: readonly SpellId[];
+  signalSequence: readonly LightState[];
+  knownSignalIds: readonly SignalId[];
 }
 
-export interface SpellCastEffect {
-  id: SpellId;
+export interface SignalCastEffect {
+  id: SignalId;
   fuelDelta?: number;
   sanityDelta?: number;
 }
@@ -123,7 +123,7 @@ export interface PlayCardResult {
   storyResolved?: boolean;
   storyConsequence?: StoryConsequence;
   gameOutcome?: "lost" | "won";
-  spellCast?: SpellCastEffect;
+  signalCast?: SignalCastEffect;
 }
 
 export const INITIAL_SANITY = 10;
@@ -134,7 +134,7 @@ export const BASE_LIGHT_FUEL_COST = 1;
 
 export interface GameStateOpts {
   deck?: Encounter[];
-  knownSpellIds?: readonly SpellId[];
+  knownSignalIds?: readonly SignalId[];
 }
 
 function shuffle<T>(items: readonly T[]): T[] {
@@ -157,7 +157,7 @@ export class GameState {
   private cardsThisTurn = 0;
   private phase: GamePhase = "player";
   private fuelSurcharge = 0;
-  private spellBook: SpellBook;
+  private signalBook: SignalBook;
   private stunNextAttack = false;
   private lighthouseDefence = 0;
   private lighthouseArmor = 0;
@@ -169,7 +169,7 @@ export class GameState {
   constructor(opts: GameStateOpts = {}) {
     this.current = this.supplier.draw();
     this.encounters = new EncounterManager(opts.deck ?? buildDefaultDeck());
-    this.spellBook = new SpellBook(opts.knownSpellIds ?? []);
+    this.signalBook = new SignalBook(opts.knownSignalIds ?? []);
     this.materializeIfDeferred();
     this.ensureAffordableFriendly();
     this.rollIntentIfUnfriendly();
@@ -207,8 +207,8 @@ export class GameState {
       cardsPerTurn: CARDS_PER_TURN + this.extraActionsThisTurn,
       lightFuelCost: this.lightFuelCost,
       encounter: this.snapshotEncounter(),
-      spellSequence: [...this.spellBook.sequence()],
-      knownSpellIds: [...this.spellBook.knownIds()],
+      signalSequence: [...this.signalBook.sequence()],
+      knownSignalIds: [...this.signalBook.knownIds()],
     };
   }
 
@@ -341,8 +341,8 @@ export class GameState {
     const card: CardPlayEffect = {};
     const result: PlayCardResult = { card };
 
-    const matched = this.spellBook.recordAndMatch(this.lightOn ? "on" : "off");
-    if (matched) result.spellCast = this.applySpellEffect(matched);
+    const matched = this.signalBook.recordAndMatch(this.lightOn ? "on" : "off");
+    if (matched) result.signalCast = this.applySignalEffect(matched);
 
     if (enc instanceof UnfriendlyEncounter) {
       if (direction === "right") {
@@ -375,7 +375,7 @@ export class GameState {
       card.friendlyOutcome = status === "learned" ? "success" : "progress";
       if (status === "learned") {
         const learned = enc.getLearned()!;
-        this.spellBook.learn(learned.id);
+        this.signalBook.learn(learned.id);
         result.friendlyMessage = `${learned.name} learned!`;
         result.friendlyMessageKind = "success";
       }
@@ -493,8 +493,8 @@ export class GameState {
     if (outcome.castIgnite) {
       const delta = 3;
       this.fuel = Math.max(0, this.fuel + delta);
-      this.spellBook.learn("ignite");
-      result.spellCast = { id: "ignite", fuelDelta: delta };
+      this.signalBook.learn("ignite");
+      result.signalCast = { id: "ignite", fuelDelta: delta };
     }
     if (enc.isResolved()) {
       result.encounterResolvedKind = "tutorial";
@@ -576,7 +576,7 @@ export class GameState {
   }
 
   private buildTeachingEncounter(): TeachingEncounter | null {
-    const unknown = this.spellBook.unknownIds().map(getSpell);
+    const unknown = this.signalBook.unknownIds().map(getSignal);
     if (unknown.length < 2) return null;
     const affordable = shuffle(
       unknown.filter((s) => signalFuelCost(s) <= this.fuel),
@@ -622,30 +622,30 @@ export class GameState {
     this.fuelSurcharge += amount;
   }
 
-  private applySpellEffect(spell: Spell): SpellCastEffect {
-    switch (spell.id) {
+  private applySignalEffect(signal: Signal): SignalCastEffect {
+    switch (signal.id) {
       case "ignite": {
         const delta = 3;
         this.fuel += delta;
-        return { id: spell.id, fuelDelta: delta };
+        return { id: signal.id, fuelDelta: delta };
       }
       case "calm": {
         const before = this.sanity;
         this.sanity = Math.min(INITIAL_SANITY, this.sanity + 2);
-        return { id: spell.id, sanityDelta: this.sanity - before };
+        return { id: signal.id, sanityDelta: this.sanity - before };
       }
       case "shroud":
         this.lighthouseDefence += 1;
-        return { id: spell.id };
+        return { id: signal.id };
       case "confusion":
         this.stunNextAttack = true;
-        return { id: spell.id };
+        return { id: signal.id };
       case "burn":
         this.burnActiveInEncounter = true;
-        return { id: spell.id };
+        return { id: signal.id };
       case "extend":
         this.extraActionsThisTurn += 1;
-        return { id: spell.id };
+        return { id: signal.id };
     }
   }
 }

@@ -6,13 +6,13 @@ import { CardView } from "../ui/CardView";
 import { EnemyView } from "../ui/EnemyView";
 import { FriendlyView } from "../ui/FriendlyView";
 import { EncounterOverlay } from "../ui/EncounterOverlay";
-import { SpellListView } from "../ui/SpellListView";
+import { SignalListView } from "../ui/SignalListView";
 import { TurnIndicator } from "../ui/TurnIndicator";
 import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { Sfx } from "../audio/Sfx";
 import { createText } from "../ui/fonts";
-import { PlayCardResult, SpellCastEffect } from "../game/GameState";
-import { SpellId } from "../game/Spell";
+import { PlayCardResult, SignalCastEffect } from "../game/GameState";
+import { SignalId, getSignal } from "../game/Signal";
 import { buildDefaultDeck } from "../game/EncounterManager";
 import {
   applyUrlResetFlag,
@@ -27,8 +27,9 @@ const STORY_OVERLAY_HOLD_MS = 1400;
 const TUTORIAL_HOLD_MS = 2000;
 const TUTORIAL_FAREWELL_MS = 600;
 const PANEL_HEIGHT = 474;
-const DEFAULT_KNOWN_SPELLS: SpellId[] = ["ignite"];
-const SPELL_ANIM_MS = 900;
+const DEFAULT_KNOWN_SIGNALS: SignalId[] = ["ignite"];
+const SIGNAL_ANIM_MS = 900;
+const SIGNAL_SHIFT_MS = 420;
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
@@ -39,7 +40,7 @@ export class GameScene extends Phaser.Scene {
   private friendlyView!: FriendlyView;
   private overlay!: EncounterOverlay;
   private turnIndicator!: TurnIndicator;
-  private spellList!: SpellListView;
+  private signalList!: SignalListView;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private prevLightOn = false;
   private storyClickHandler?: () => void;
@@ -49,6 +50,7 @@ export class GameScene extends Phaser.Scene {
   private dialogueHintActive = false;
   private dialogueHintIncludeDecline = true;
   private dialogueHintDelayMs = 10000;
+  private animating = false;
 
   constructor() {
     super({ key: "GameScene" });
@@ -65,7 +67,7 @@ export class GameScene extends Phaser.Scene {
     applyUrlResetFlag();
     const runTutorial = !isTutorialCompleted();
     this.state = new GameState({
-      knownSpellIds: runTutorial ? [] : DEFAULT_KNOWN_SPELLS,
+      knownSignalIds: runTutorial ? [] : DEFAULT_KNOWN_SIGNALS,
       deck: buildDefaultDeck({ includeTutorial: runTutorial }),
     });
 
@@ -76,7 +78,7 @@ export class GameScene extends Phaser.Scene {
 
     this.turnIndicator = new TurnIndicator(this, width - 260, 40);
 
-    this.spellList = new SpellListView(this, height, this.state.snapshot().knownSpellIds);
+    this.signalList = new SignalListView(this, height, this.state.snapshot().knownSignalIds);
 
     this.dimOverlay = this.add
       .rectangle(0, 0, width, height, 0x000000, 0)
@@ -98,15 +100,16 @@ export class GameScene extends Phaser.Scene {
       this,
       cardHomeX,
       cardHomeY,
-      (dir) => this.state.canPlayCard(dir),
+      (dir) => !this.animating && this.state.canPlayCard(dir),
       (dir) => this.handleCardPlayed(dir),
     );
 
     this.refreshViews();
     const initSnap = this.state.snapshot();
     this.prevLightOn = initSnap.lightOn;
-    this.spellList.setKnown(initSnap.knownSpellIds);
-    this.spellList.setSequence(initSnap.spellSequence);
+    this.signalList.setKnown(initSnap.knownSignalIds);
+    this.signalList.setSequence(initSnap.signalSequence);
+    this.lighthouse.setSignal(initSnap.signalSequence);
     this.renderDeck(initSnap);
   }
 
@@ -185,8 +188,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateTurnIndicator();
-    this.spellList.setKnown(snap.knownSpellIds);
-    this.spellList.setSequence(snap.spellSequence);
+    this.signalList.setKnown(snap.knownSignalIds);
+    this.signalList.setSequence(snap.signalSequence);
+
+    // Sliding-window case: a 3rd state was just added without matching. The
+    // lighthouse animates the shift; signalCast and no-change cases fall
+    // through to the direct setSignal.
+    const shifted =
+      !result.signalCast &&
+      preSnap.signalSequence.length >= 2 &&
+      snap.signalSequence.length === 3;
+    if (!result.signalCast && !shifted) {
+      this.lighthouse.setSignal(snap.signalSequence);
+    }
 
     const continueResolution = () => {
       if (result.enemyAttack) {
@@ -199,16 +213,27 @@ export class GameScene extends Phaser.Scene {
       this.finishCardResolution(result, snap);
     };
 
-    if (result.spellCast) {
-      this.playSpellCastAnimation(result.spellCast, continueResolution);
+    if (result.signalCast) {
+      this.playSignalCastAnimation(result.signalCast, continueResolution);
+      return;
+    }
+
+    if (shifted) {
+      this.animating = true;
+      this.lighthouse.animateShift(snap.signalSequence, SIGNAL_SHIFT_MS, () => {
+        this.animating = false;
+        continueResolution();
+      });
       return;
     }
 
     continueResolution();
   }
 
-  private playSpellCastAnimation(cast: SpellCastEffect, onComplete: () => void): void {
-    this.spellList.flashSpell(cast.id, SPELL_ANIM_MS);
+  private playSignalCastAnimation(cast: SignalCastEffect, onComplete: () => void): void {
+    this.animating = true;
+    this.signalList.flashSignal(cast.id, SIGNAL_ANIM_MS);
+    this.lighthouse.playSignalMatch(getSignal(cast.id).sequence, SIGNAL_ANIM_MS);
 
     const banner = createText(
       this,
@@ -234,7 +259,11 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => banner.destroy(),
     });
 
-    this.time.delayedCall(SPELL_ANIM_MS, onComplete);
+    this.time.delayedCall(SIGNAL_ANIM_MS, () => {
+      this.animating = false;
+      this.lighthouse.setSignal(this.state.snapshot().signalSequence);
+      onComplete();
+    });
   }
 
   private finishCardResolution(result: PlayCardResult, snap: GameStateSnapshot): void {
@@ -312,8 +341,9 @@ export class GameScene extends Phaser.Scene {
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
     if (direction === "left") this.flashDim();
     this.updateTurnIndicator();
-    this.spellList.setKnown(snap.knownSpellIds);
-    this.spellList.setSequence(snap.spellSequence);
+    this.signalList.setKnown(snap.knownSignalIds);
+    this.signalList.setSequence(snap.signalSequence);
+    this.lighthouse.setSignal(snap.signalSequence);
 
     const continueResolve = () => {
       if (result.encounterResolvedKind === "tutorial") {
@@ -324,8 +354,8 @@ export class GameScene extends Phaser.Scene {
       this.renderTutorial();
     };
 
-    if (result.spellCast) {
-      this.playSpellCastAnimation(result.spellCast, continueResolve);
+    if (result.signalCast) {
+      this.playSignalCastAnimation(result.signalCast, continueResolve);
       return;
     }
     continueResolve();
@@ -576,6 +606,7 @@ export class GameScene extends Phaser.Scene {
     this.lighthouse.setLight(snap.lightOn);
     this.enemyView.setLight(snap.lightOn);
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
+    this.lighthouse.setSignal(snap.signalSequence);
     this.panel.setResources(snap.sanity, snap.fuel);
     this.disarmStoryResolution();
     this.cancelDialogueHint();

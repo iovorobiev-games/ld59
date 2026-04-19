@@ -1,5 +1,5 @@
 import { Encounter, SwipeDirection } from "./Encounter";
-import { LightState, sequencesMatch } from "./Spell";
+import { LightState, sequencesMatch } from "./Signal";
 
 export type TutorialPhase =
   | "greeting_1"

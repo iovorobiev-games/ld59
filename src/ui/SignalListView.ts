@@ -1,11 +1,11 @@
 import Phaser from "phaser";
 import {
-  ALL_SPELLS,
+  ALL_SIGNALS,
   LightState,
-  SPELL_SEQUENCE_LENGTH,
-  Spell,
-  SpellId,
-} from "../game/Spell";
+  SIGNAL_SEQUENCE_LENGTH,
+  Signal,
+  SignalId,
+} from "../game/Signal";
 import { createText } from "./fonts";
 
 const MARGIN = 24;
@@ -27,36 +27,36 @@ const EMPTY_COLOR = 0x2a2a3a;
 const ROW_FLASH_COLOR = 0x5a3a14;
 const DEPTH = 50;
 
-interface SpellRow {
-  id: SpellId;
+interface SignalRow {
+  id: SignalId;
   bg: Phaser.GameObjects.Rectangle;
 }
 
-export class SpellListView {
+export class SignalListView {
   private scene: Phaser.Scene;
   private screenHeight: number;
   private created: Phaser.GameObjects.GameObject[] = [];
-  private rows: SpellRow[] = [];
+  private rows: SignalRow[] = [];
   private currentDots: Phaser.GameObjects.Arc[] = [];
   private panelBounds: { left: number; top: number; width: number; height: number } | null = null;
   private knownKey = "";
   private lastSequence: readonly LightState[] = [];
 
-  constructor(scene: Phaser.Scene, screenHeight: number, knownIds: readonly SpellId[]) {
+  constructor(scene: Phaser.Scene, screenHeight: number, knownIds: readonly SignalId[]) {
     this.scene = scene;
     this.screenHeight = screenHeight;
     this.setKnown(knownIds);
   }
 
-  setKnown(knownIds: readonly SpellId[]): void {
+  setKnown(knownIds: readonly SignalId[]): void {
     const known = new Set(knownIds);
-    const spells = ALL_SPELLS.filter((s) => known.has(s.id));
-    const key = spells.map((s) => s.id).join(",");
+    const signals = ALL_SIGNALS.filter((s) => known.has(s.id));
+    const key = signals.map((s) => s.id).join(",");
     if (key === this.knownKey) return;
     this.knownKey = key;
     this.destroyAll();
-    if (spells.length === 0) return;
-    this.buildPanel(spells);
+    if (signals.length === 0) return;
+    this.buildPanel(signals);
     this.setSequence(this.lastSequence);
   }
 
@@ -74,7 +74,7 @@ export class SpellListView {
     });
   }
 
-  flashSpell(id: SpellId, durationMs = 600): void {
+  flashSignal(id: SignalId, durationMs = 600): void {
     const row = this.rows.find((r) => r.id === id);
     if (!row) return;
     this.scene.tweens.killTweensOf(row.bg);
@@ -88,8 +88,7 @@ export class SpellListView {
     });
   }
 
-  // World-space anchor for spawning floating effects near a spell row.
-  rowAnchor(id: SpellId): { x: number; y: number } | null {
+  rowAnchor(id: SignalId): { x: number; y: number } | null {
     const row = this.rows.find((r) => r.id === id);
     if (!row) return null;
     return { x: row.bg.x + row.bg.width / 2, y: row.bg.y + row.bg.height / 2 };
@@ -116,9 +115,9 @@ export class SpellListView {
     return obj;
   }
 
-  private buildPanel(spells: Spell[]): void {
+  private buildPanel(signals: Signal[]): void {
     const panelHeight =
-      PAD * 2 + HEADER_HEIGHT + CURRENT_HEIGHT + spells.length * ROW_HEIGHT + (spells.length - 1) * ROW_GAP;
+      PAD * 2 + HEADER_HEIGHT + CURRENT_HEIGHT + signals.length * ROW_HEIGHT + (signals.length - 1) * ROW_GAP;
     const panelLeft = MARGIN;
     const panelTop = this.screenHeight - MARGIN - panelHeight;
     this.panelBounds = { left: panelLeft, top: panelTop, width: PANEL_WIDTH, height: panelHeight };
@@ -132,7 +131,7 @@ export class SpellListView {
     );
 
     this.track(
-      createText(this.scene, panelLeft + PAD, panelTop + PAD, "SPELLS", {
+      createText(this.scene, panelLeft + PAD, panelTop + PAD, "SIGNALS", {
         fontSize: "24px",
         color: "#ffd27a",
       }).setDepth(DEPTH + 1),
@@ -141,9 +140,9 @@ export class SpellListView {
     this.buildCurrentSequence(panelLeft, panelTop + PAD + HEADER_HEIGHT);
 
     const rowsTop = panelTop + PAD + HEADER_HEIGHT + CURRENT_HEIGHT;
-    spells.forEach((spell, i) => {
+    signals.forEach((signal, i) => {
       const rowY = rowsTop + i * (ROW_HEIGHT + ROW_GAP);
-      this.drawRow(spell, panelLeft, rowY);
+      this.drawRow(signal, panelLeft, rowY);
     });
   }
 
@@ -155,9 +154,9 @@ export class SpellListView {
       }).setDepth(DEPTH + 1),
     );
 
-    const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * SPELL_SEQUENCE_LENGTH + DOT_SPACING / 2;
+    const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * SIGNAL_SEQUENCE_LENGTH + DOT_SPACING / 2;
     const dotsY = y + 10;
-    for (let i = 0; i < SPELL_SEQUENCE_LENGTH; i++) {
+    for (let i = 0; i < SIGNAL_SEQUENCE_LENGTH; i++) {
       const dot = this.scene.add
         .circle(dotsX + i * DOT_SPACING, dotsY, DOT_RADIUS, EMPTY_COLOR)
         .setStrokeStyle(1, 0x101018)
@@ -168,7 +167,7 @@ export class SpellListView {
     }
   }
 
-  private drawRow(spell: Spell, panelLeft: number, rowY: number): void {
+  private drawRow(signal: Signal, panelLeft: number, rowY: number): void {
     const bg = this.scene.add
       .rectangle(panelLeft + PAD / 2, rowY - 2, PANEL_WIDTH - PAD, ROW_HEIGHT, ROW_FLASH_COLOR, 0)
       .setOrigin(0)
@@ -176,14 +175,14 @@ export class SpellListView {
     this.track(bg);
 
     this.track(
-      createText(this.scene, panelLeft + PAD, rowY, spell.name, {
+      createText(this.scene, panelLeft + PAD, rowY, signal.name, {
         fontSize: "18px",
         color: NAME_COLOR,
       }).setDepth(DEPTH + 1),
     );
 
     this.track(
-      createText(this.scene, panelLeft + PAD, rowY + 20, spell.description, {
+      createText(this.scene, panelLeft + PAD, rowY + 20, signal.description, {
         fontSize: "12px",
         color: DESC_COLOR,
       }).setDepth(DEPTH + 1),
@@ -191,7 +190,7 @@ export class SpellListView {
 
     const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * 3 + DOT_SPACING / 2;
     const dotsY = rowY + ROW_HEIGHT / 2 - 4;
-    spell.sequence.forEach((state, idx) => {
+    signal.sequence.forEach((state, idx) => {
       this.track(
         this.scene.add
           .circle(dotsX + idx * DOT_SPACING, dotsY, DOT_RADIUS, dotColor(state))
@@ -200,7 +199,7 @@ export class SpellListView {
       );
     });
 
-    this.rows.push({ id: spell.id, bg });
+    this.rows.push({ id: signal.id, bg });
   }
 }
 

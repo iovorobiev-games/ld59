@@ -22,6 +22,8 @@ export class HealthBar {
     this.label = createText(scene, x, y, "", {
       fontSize: `${Math.floor(options.height * 0.9)}px`,
       color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 4,
     }).setOrigin(0.5);
   }
 
@@ -31,5 +33,9 @@ export class HealthBar {
 
   setVisible(visible: boolean): void {
     this.label.setVisible(visible);
+  }
+
+  setDepth(depth: number): void {
+    this.label.setDepth(depth);
   }
 }

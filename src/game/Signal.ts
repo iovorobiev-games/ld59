@@ -1,6 +1,6 @@
 export type LightState = "on" | "off";
 
-export type SpellId =
+export type SignalId =
   | "confusion"
   | "ignite"
   | "shroud"
@@ -8,14 +8,14 @@ export type SpellId =
   | "burn"
   | "extend";
 
-export interface Spell {
-  readonly id: SpellId;
+export interface Signal {
+  readonly id: SignalId;
   readonly name: string;
   readonly sequence: readonly [LightState, LightState, LightState];
   readonly description: string;
 }
 
-export const SPELL_SEQUENCE_LENGTH = 3;
+export const SIGNAL_SEQUENCE_LENGTH = 3;
 
 export function sequencesMatch(
   a: readonly LightState[],
@@ -30,17 +30,17 @@ export function formatSignal(seq: readonly LightState[]): string {
   return seq.map((s) => (s === "on" ? "ON" : "OFF")).join(" ");
 }
 
-export function signalFuelCost(spell: Spell): number {
-  return spell.sequence.filter((s) => s === "on").length;
+export function signalFuelCost(signal: Signal): number {
+  return signal.sequence.filter((s) => s === "on").length;
 }
 
-export function getSpell(id: SpellId): Spell {
-  const found = ALL_SPELLS.find((s) => s.id === id);
-  if (!found) throw new Error(`Unknown spell id: ${id}`);
+export function getSignal(id: SignalId): Signal {
+  const found = ALL_SIGNALS.find((s) => s.id === id);
+  if (!found) throw new Error(`Unknown signal id: ${id}`);
   return found;
 }
 
-export const ALL_SPELLS: readonly Spell[] = [
+export const ALL_SIGNALS: readonly Signal[] = [
   {
     id: "confusion",
     name: "Confusion",
