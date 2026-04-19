@@ -3,6 +3,7 @@ import { AbilityIntent } from "../game/Ability";
 import { HealthBar } from "./HealthBar";
 import { createText } from "./fonts";
 import { SILHOUETTE_PIPELINE_KEY } from "../pipelines/SilhouettePipeline";
+import { Sfx } from "../audio/Sfx";
 
 const LIGHT_OFF_TINT = 0x0b0c06;
 
@@ -149,6 +150,8 @@ export class EnemyView {
       onComplete: () => this.startOscillation(),
     });
     this.scene.cameras.main.shake(arrivalDuration, 0.006);
+    const burstCount = 4;
+    Sfx.explosionBurst(this.scene, burstCount, arrivalDuration / burstCount);
   }
 
   private startOscillation(): void {
