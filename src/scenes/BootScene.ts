@@ -22,6 +22,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image("ghost", "sprites/ghost.png");
     this.load.image("builder", "sprites/builder.png");
     this.load.image("kid", "sprites/kid.png");
+    this.load.image("wife", "sprites/wife.png");
     this.load.image("winged_horror", "sprites/winged_horror.png");
     this.load.image("skywraith", "sprites/skywraith.png");
     this.load.image("fog", "sprites/fog.png");
@@ -43,6 +44,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start("GameScene");
+    this.scene.start("IntroScene");
   }
 }

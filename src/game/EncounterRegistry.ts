@@ -8,9 +8,42 @@ import { blinkIconsFor } from "./Signal";
 
 export interface EncounterContext {
   lightOn: boolean;
+  storyFlags?: Record<string, boolean>;
 }
 
-export type EncounterFactory = (ctx: EncounterContext) => Encounter;
+export type EncounterFactory = (ctx: EncounterContext) => Encounter | null;
+
+function blinkFriendly(config: {
+  greeting: string;
+  successText: string;
+  failureText: string;
+  successReward: { fuel?: number; sanity?: number; hp?: number };
+  failureReward?: { fuel?: number; sanity?: number; hp?: number };
+  character: "wizard" | "wife";
+  lightOn: boolean;
+  successFlags?: Record<string, boolean>;
+  failureFlags?: Record<string, boolean>;
+  offProgress?: boolean;
+}): FriendlyEncounter {
+  return new FriendlyEncounter({
+    sequence: config.lightOn ? ["left", "right"] : ["right", "left"],
+    reward: config.successReward,
+    failureReward: config.failureReward ?? {},
+    successText: config.successText,
+    failureText: config.failureText,
+    character: config.character,
+    greeting: config.greeting,
+    labelsForLight: (lightOn) => {
+      const pair = blinkIconsFor(lightOn);
+      return lightOn
+        ? { left: `Blink ${pair}`, right: "Stay bright" }
+        : { left: "Stay dark", right: `Blink ${pair}` };
+    },
+    successFlags: config.successFlags,
+    failureFlags: config.failureFlags,
+    offProgress: config.offProgress ?? true,
+  });
+}
 
 const FACTORIES: Record<EncounterId, EncounterFactory> = {
   bandits_shipwreck: () =>
@@ -80,6 +113,61 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
       leftLabel: "Dim",
       rightLabel: "Refuse",
     }),
+
+  wizard_probation: () =>
+    new FriendlyEncounter({
+      sequence: ["right"],
+      acceptAny: true,
+      reward: { fuel: 1, sanity: 1 },
+      successText: "Well then,\nuntil next night.",
+      failureText: "",
+      character: "wizard",
+      greeting:
+        "You seem to function fine.\nLet's make the first three nights\nyour... probation period.\nI'll check in periodically.",
+      leftLabel: "Nod",
+      rightLabel: "Nod",
+      offProgress: true,
+    }),
+
+  wife_night2: (ctx) =>
+    blinkFriendly({
+      character: "wife",
+      lightOn: ctx.lightOn,
+      greeting:
+        "Is it really you?\nAre you really there?\nCan you... blink?",
+      successText: "*the woman cries and runs away*",
+      failureText: "...",
+      successReward: { sanity: 2 },
+      failureReward: { sanity: -2 },
+      successFlags: { wife_alive: true },
+    }),
+
+  wife_night3: (ctx) => {
+    if (!ctx.storyFlags?.wife_alive) return null;
+    return blinkFriendly({
+      character: "wife",
+      lightOn: ctx.lightOn,
+      greeting:
+        "I brought your favourite\nfishing rod...\nIt was your favourite anyway.\n*you feel a sudden urge to blink*",
+      successText: "I still love you...",
+      failureText: "Are you still there?\nI'll leave it here, anyway...",
+      successReward: { sanity: 2 },
+      failureReward: { sanity: -2, hp: 1 },
+    });
+  },
+
+  wizard_final: (ctx) =>
+    blinkFriendly({
+      character: "wizard",
+      lightOn: ctx.lightOn,
+      greeting:
+        "I wonder, lightkeeper...\nDo you feel alive?\nBlink if you do.",
+      successText:
+        "I see. I think my spell\nwas too powerful then.\nI will need to rework it.\nFor now... don't be afraid,\nthis is not your first time.",
+      failureText: "Finally,\nI found a balanced spell...",
+      successReward: {},
+      failureReward: {},
+    }),
 };
 
 export function createEncounterById(
@@ -87,5 +175,6 @@ export function createEncounterById(
   ctx: EncounterContext,
 ): Encounter | null {
   const factory = FACTORIES[id];
-  return factory ? factory(ctx) : null;
+  if (!factory) return null;
+  return factory(ctx);
 }

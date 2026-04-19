@@ -41,12 +41,14 @@ const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
   ghost: "ghost",
   builder: "builder",
   kid: "kid",
+  wife: "wife",
 };
 
 // Shorter characters drop below the cutout when centered on the adult line.
 // Nudge them down so the top of the head sits inside the cutout.
 const CHARACTER_Y_OFFSET: Partial<Record<FriendlyCharacter, number>> = {
   kid: 40,
+  wife: 40,
 };
 
 const CONTAINER_DEPTH = 3;

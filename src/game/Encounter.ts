@@ -63,7 +63,8 @@ export type FriendlyCharacter =
   | "guard"
   | "ghost"
   | "builder"
-  | "kid";
+  | "kid"
+  | "wife";
 
 export interface FriendlyLabels {
   left: string;
@@ -93,6 +94,11 @@ export interface FriendlyEncounterConfig {
   // state (e.g. a "blink" sequence flips which direction finishes the blink
   // once the first toggle has happened).
   labelsForLight?: (lightOn: boolean) => FriendlyLabels;
+  // Story beats (night openers, final closer) skip the night progress indicator.
+  offProgress?: boolean;
+  // Flags to merge into GameState storyFlags when the encounter resolves.
+  successFlags?: Record<string, boolean>;
+  failureFlags?: Record<string, boolean>;
 }
 
 export interface FriendlyStepResult {
@@ -119,6 +125,9 @@ export class FriendlyEncounter implements Encounter {
   readonly leftLabel: string;
   readonly rightLabel: string;
   readonly labelsForLight?: (lightOn: boolean) => FriendlyLabels;
+  readonly offProgress: boolean;
+  readonly successFlags: Record<string, boolean>;
+  readonly failureFlags: Record<string, boolean>;
   private progress = 0;
   private failed = false;
 
@@ -139,6 +148,9 @@ export class FriendlyEncounter implements Encounter {
     this.leftLabel = config.leftLabel ?? defaultLabelFor(this.sequence, "left");
     this.rightLabel = config.rightLabel ?? defaultLabelFor(this.sequence, "right");
     this.labelsForLight = config.labelsForLight;
+    this.offProgress = config.offProgress ?? false;
+    this.successFlags = config.successFlags ?? {};
+    this.failureFlags = config.failureFlags ?? {};
   }
 
   currentLabels(lightOn: boolean): FriendlyLabels {
@@ -271,7 +283,7 @@ export class StoryEncounter implements Encounter {
 export class DeferredEncounter implements Encounter {
   readonly kind = "deferred" as const;
 
-  constructor(readonly id: EncounterId) {}
+  constructor(readonly id: EncounterId, readonly offProgress: boolean = false) {}
 
   isResolved(): boolean {
     return false;

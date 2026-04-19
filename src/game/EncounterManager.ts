@@ -7,6 +7,7 @@ import {
 } from "./Ability";
 import { Enemy } from "./Enemy";
 import {
+  DeferredEncounter,
   Encounter,
   FriendlyEncounter,
   FriendlyEncounterConfig,
@@ -33,6 +34,14 @@ export class EncounterManager {
 
   replaceCurrent(enc: Encounter): void {
     if (this.index < this.deck.length) this.deck[this.index] = enc;
+  }
+
+  // Remove the current slot (used when a conditional DeferredEncounter
+  // resolves to null). Returns true if there's a new current to consider.
+  removeCurrent(): boolean {
+    if (this.index >= this.deck.length) return false;
+    this.deck.splice(this.index, 1);
+    return this.index < this.deck.length;
   }
 
   insertNext(enc: Encounter): void {
@@ -87,6 +96,8 @@ export class EncounterManager {
   // Progress within the current night. Loot-fisher slots (the encounter
   // inserted right after an enemy) don't get their own notch — the bar still
   // shows the enemy's notch while the player is on the loot follow-up.
+  // Story beats marked `offProgress` (night openers, the Night 3 finale)
+  // also skip the count so the bar reflects the combat/filler arc.
   // Returns null when the player is pre-Night 1 (e.g. tutorial slots).
   nightProgress(): { nightNumber: number; position: number; total: number } | null {
     let markerIdx = -1;
@@ -102,9 +113,14 @@ export class EncounterManager {
     let position = 0;
     for (let i = markerIdx + 1; i < this.deck.length; i++) {
       if (this.deck[i] instanceof NightEncounter) break;
+      const slot = this.deck[i];
       const isPostEnemyFollowup = this.deck[i - 1] instanceof UnfriendlyEncounter;
-      if (!isPostEnemyFollowup) total += 1;
-      if (i <= this.index && !isPostEnemyFollowup) position = total;
+      const isOffProgress =
+        (slot instanceof FriendlyEncounter && slot.offProgress) ||
+        (slot instanceof DeferredEncounter && slot.offProgress);
+      const counts = !isPostEnemyFollowup && !isOffProgress;
+      if (counts) total += 1;
+      if (i <= this.index && counts) position = total;
     }
     return { nightNumber: marker.nightNumber, position, total };
   }
@@ -375,6 +391,16 @@ export interface BuildDeckOptions {
   includeTutorial?: boolean;
 }
 
+// Story opener pinned to the top of each night; materialized at runtime so
+// blink sequences can read the current light state. Night 3's opener may
+// resolve to null (skipped if the Night 2 wife beat was failed).
+const NIGHT_OPENER_IDS: readonly (string | null)[] = [
+  "wizard_probation",
+  "wife_night2",
+  "wife_night3",
+];
+const FINAL_STORY_ID = "wizard_final";
+
 export function buildDefaultDeck(opts: BuildDeckOptions = {}): Encounter[] {
   const deck: Encounter[] = [];
   if (opts.includeTutorial) {
@@ -384,12 +410,15 @@ export function buildDefaultDeck(opts: BuildDeckOptions = {}): Encounter[] {
   }
   for (let nightIdx = 0; nightIdx < NIGHT_CONFIGS.length; nightIdx++) {
     deck.push(new NightEncounter(nightIdx + 1));
+    const openerId = NIGHT_OPENER_IDS[nightIdx];
+    if (openerId) deck.push(new DeferredEncounter(openerId, true));
     const slots = buildNightSlots(nightIdx);
     for (const enc of slots) {
       deck.push(enc);
       if (enc instanceof UnfriendlyEncounter) deck.push(createLootFisher());
     }
   }
+  deck.push(new DeferredEncounter(FINAL_STORY_ID, true));
   return deck;
 }
 

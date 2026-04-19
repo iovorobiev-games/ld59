@@ -40,7 +40,7 @@ export class TutorialEncounter implements Encounter {
   text(): string {
     switch (this.phase) {
       case "greeting_1":
-        return "Ah, a new lighthouse keeper.";
+        return "Lightkeeper! Finally here!";
       case "greeting_2":
         return "It is very easy to operate\nthe lighthouse.";
       case "instruct_swipe":
