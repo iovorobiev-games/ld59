@@ -11,6 +11,7 @@ import {
   Encounter,
   FriendlyEncounter,
   FriendlyEncounterConfig,
+  FriendlyReward,
   NightEncounter,
   UnfriendlyEncounter,
   WizardTeachingPlaceholder,
@@ -183,10 +184,12 @@ export function createGrandkidEncounter(): FriendlyEncounter {
 
 function createLootFisher(): FriendlyEncounter {
   const fuel = 2 + Math.floor(Math.random() * 3);
+  const hp = Math.floor(Math.random() * 3);
+  const reward: FriendlyReward = hp > 0 ? { fuel, hp } : { fuel };
   return new FriendlyEncounter({
     sequence: ["left"],
     acceptAny: true,
-    reward: { fuel },
+    reward,
     successText: "Take your pick, keeper.",
     failureText: "",
     character: "fisher",
