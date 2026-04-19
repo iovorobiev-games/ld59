@@ -39,6 +39,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("synth_3", "audio/synth_3.wav");
     this.load.audio("synth_4", "audio/synth_4.wav");
     this.load.audio("explosion", "audio/explosion.wav");
+    this.load.audio("click_light", "audio/click_light.wav");
   }
 
   create(): void {

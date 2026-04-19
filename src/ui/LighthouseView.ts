@@ -3,6 +3,7 @@ import { HealthBar } from "./HealthBar";
 import { createText } from "./fonts";
 import { SILHOUETTE_PIPELINE_KEY } from "../pipelines/SilhouettePipeline";
 import { LightState, SIGNAL_SEQUENCE_LENGTH } from "../game/Signal";
+import { Sfx } from "../audio/Sfx";
 
 const SKY_COLOR = 0x0b0c06;
 const LIGHT_OFF_TINT = 0x0b0c06;
@@ -171,6 +172,7 @@ export class LighthouseView {
   }
 
   flashLight(): void {
+    Sfx.clickLight(this.scene);
     const beams = this.beams();
     this.scene.tweens.killTweensOf(beams);
     beams.forEach((b) => (b.fillAlpha = 1));

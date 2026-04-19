@@ -4,6 +4,7 @@ const HIT_HURT_KEYS = ["hitHurt", "hitHurt1", "hitHurt2", "hitHurt3"];
 const SYNTH_KEYS = ["synth_1", "synth_2", "synth_3", "synth_4"];
 const AMBIENT_KEY = "ambient";
 const EXPLOSION_KEY = "explosion";
+const CLICK_LIGHT_KEY = "click_light";
 const AMBIENT_VOLUME = 0.1;
 
 function pick<T>(arr: readonly T[]): T {
@@ -19,6 +20,9 @@ export const Sfx = {
   },
   explosion(scene: Phaser.Scene, volume = 0.7): void {
     scene.sound.play(EXPLOSION_KEY, { volume });
+  },
+  clickLight(scene: Phaser.Scene, volume = 0.7): void {
+    scene.sound.play(CLICK_LIGHT_KEY, { volume });
   },
   explosionBurst(scene: Phaser.Scene, count: number, spacingMs: number, volume = 0.7): void {
     for (let i = 0; i < count; i++) {
