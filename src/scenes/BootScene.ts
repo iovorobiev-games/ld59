@@ -15,6 +15,16 @@ export class BootScene extends Phaser.Scene {
     this.load.image("pointer", "sprites/pointer.png");
     this.load.image("wizard", "sprites/characters/wizard.png");
     this.load.image("bandit", "sprites/characters/bandit.png");
+
+    this.load.audio("ambient", "audio/ambient.wav");
+    this.load.audio("hitHurt", "audio/hitHurt.wav");
+    this.load.audio("hitHurt1", "audio/hitHurt%20(1).wav");
+    this.load.audio("hitHurt2", "audio/hitHurt%20(2).wav");
+    this.load.audio("hitHurt3", "audio/hitHurt%20(3).wav");
+    this.load.audio("synth_1", "audio/synth_1.wav");
+    this.load.audio("synth_2", "audio/synth_2.wav");
+    this.load.audio("synth_3", "audio/synth_3.wav");
+    this.load.audio("synth_4", "audio/synth_4.wav");
   }
 
   create(): void {

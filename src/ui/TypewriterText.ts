@@ -4,15 +4,21 @@ export class TypewriterText {
   private readonly scene: Phaser.Scene;
   private readonly text: Phaser.GameObjects.Text;
   private readonly charDelayMs: number;
+  private readonly onChar?: (char: string, index: number) => void;
   private timer?: Phaser.Time.TimerEvent;
   private fullText = "";
   private charIndex = 0;
   private onComplete?: () => void;
 
-  constructor(text: Phaser.GameObjects.Text, charDelayMs = 30) {
+  constructor(
+    text: Phaser.GameObjects.Text,
+    charDelayMs = 30,
+    onChar?: (char: string, index: number) => void,
+  ) {
     this.scene = text.scene;
     this.text = text;
     this.charDelayMs = charDelayMs;
+    this.onChar = onChar;
   }
 
   play(fullText: string, onComplete?: () => void): void {
@@ -40,7 +46,9 @@ export class TypewriterText {
 
   private tick(): void {
     this.charIndex += 1;
+    const char = this.fullText.charAt(this.charIndex - 1);
     this.text.setText(this.fullText.substring(0, this.charIndex));
+    this.onChar?.(char, this.charIndex - 1);
     if (this.charIndex >= this.fullText.length) {
       this.cancel();
       this.onComplete?.();

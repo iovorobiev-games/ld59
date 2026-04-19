@@ -7,6 +7,7 @@ import {
 import { Spell, formatSignal } from "../game/Spell";
 import { createText } from "./fonts";
 import { TypewriterText } from "./TypewriterText";
+import { Sfx } from "../audio/Sfx";
 
 const DOOR_WIDTH = 680;
 const DOOR_HEIGHT = 659;
@@ -29,6 +30,7 @@ const KNOCK_HALF_DURATION = 90;
 const KNOCK_COUNT = 3;
 
 const TYPEWRITER_CHAR_MS = 35;
+const SYNTH_EVERY_N_CHARS = 3;
 
 // Fisher has no dedicated sprite yet — reuse bandit art until one is added.
 const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
@@ -92,7 +94,11 @@ export class FriendlyView {
         wordWrap: { width: DOOR_WIDTH - 120 },
       },
     ).setOrigin(0.5);
-    this.typewriter = new TypewriterText(this.text, TYPEWRITER_CHAR_MS);
+    this.typewriter = new TypewriterText(
+      this.text,
+      TYPEWRITER_CHAR_MS,
+      (char, index) => this.onTypewriterChar(char, index),
+    );
 
     container.add([backing, this.character, this.door, pointer, this.text]);
     container.setDepth(3);
@@ -209,6 +215,7 @@ export class FriendlyView {
   private knock(onComplete: () => void): void {
     this.cancelKnock();
     this.door.setScale(1);
+    Sfx.hitHurt(this.scene);
     this.knockTween = this.scene.tweens.add({
       targets: this.door,
       scale: KNOCK_SCALE,
@@ -216,11 +223,18 @@ export class FriendlyView {
       yoyo: true,
       repeat: KNOCK_COUNT - 1,
       ease: "Sine.easeInOut",
+      onRepeat: () => Sfx.hitHurt(this.scene),
       onComplete: () => {
         this.door.setScale(1);
         onComplete();
       },
     });
+  }
+
+  private onTypewriterChar(char: string, index: number): void {
+    if (/\s/.test(char)) return;
+    if (index % SYNTH_EVERY_N_CHARS !== 0) return;
+    Sfx.synth(this.scene);
   }
 
   private cancelKnock(): void {
