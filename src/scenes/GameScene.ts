@@ -10,6 +10,7 @@ import { NightOverlay } from "../ui/NightOverlay";
 import { SignalListView } from "../ui/SignalListView";
 import { playLightningStrike } from "../ui/LightningStrike";
 import { TurnIndicator } from "../ui/TurnIndicator";
+import { NightProgressView } from "../ui/NightProgressView";
 import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { Sfx } from "../audio/Sfx";
 import { createText } from "../ui/fonts";
@@ -43,6 +44,7 @@ export class GameScene extends Phaser.Scene {
   private overlay!: EncounterOverlay;
   private nightOverlay!: NightOverlay;
   private turnIndicator!: TurnIndicator;
+  private nightProgressView!: NightProgressView;
   private signalList!: SignalListView;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private prevLightOn = false;
@@ -81,6 +83,7 @@ export class GameScene extends Phaser.Scene {
     this.panel = new BottomPanel(this, panelTop, width, PANEL_HEIGHT);
 
     this.turnIndicator = new TurnIndicator(this, width - 260, 48);
+    this.nightProgressView = new NightProgressView(this, width, 50);
 
     this.signalList = new SignalListView(this, height, this.state.snapshot().knownSignalIds);
 
@@ -821,6 +824,7 @@ export class GameScene extends Phaser.Scene {
       friendlySequence: snap.encounter?.friendlySequence,
       friendlyProgress: snap.encounter?.friendlyProgress,
     });
+    this.nightProgressView.update(snap.nightProgress);
   }
 
   update(): void {

@@ -94,6 +94,7 @@ export interface GameStateSnapshot {
   encounter: EncounterSnapshot | null;
   signalSequence: readonly LightState[];
   knownSignalIds: readonly SignalId[];
+  nightProgress: { nightNumber: number; position: number; total: number } | null;
 }
 
 export interface SignalCastEffect {
@@ -217,6 +218,7 @@ export class GameState {
       encounter: this.snapshotEncounter(),
       signalSequence: [...this.signalBook.sequence()],
       knownSignalIds: [...this.signalBook.knownIds()],
+      nightProgress: this.encounters.nightProgress(),
     };
   }
 

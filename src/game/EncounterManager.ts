@@ -84,6 +84,31 @@ export class EncounterManager {
   position(): number {
     return Math.min(this.index + 1, this.deck.length);
   }
+
+  // Progress within the current night. Loot-fisher slots (the encounter
+  // inserted right after an enemy) don't get their own notch — the bar still
+  // shows the enemy's notch while the player is on the loot follow-up.
+  // Returns null when the player is pre-Night 1 (e.g. tutorial slots).
+  nightProgress(): { nightNumber: number; position: number; total: number } | null {
+    let markerIdx = -1;
+    for (let i = Math.min(this.index, this.deck.length - 1); i >= 0; i--) {
+      if (this.deck[i] instanceof NightEncounter) {
+        markerIdx = i;
+        break;
+      }
+    }
+    if (markerIdx < 0) return null;
+    const marker = this.deck[markerIdx] as NightEncounter;
+    let total = 0;
+    let position = 0;
+    for (let i = markerIdx + 1; i < this.deck.length; i++) {
+      if (this.deck[i] instanceof NightEncounter) break;
+      const isPostEnemyFollowup = this.deck[i - 1] instanceof UnfriendlyEncounter;
+      if (!isPostEnemyFollowup) total += 1;
+      if (i <= this.index && !isPostEnemyFollowup) position = total;
+    }
+    return { nightNumber: marker.nightNumber, position, total };
+  }
 }
 
 const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
