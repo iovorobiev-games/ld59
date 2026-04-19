@@ -309,6 +309,7 @@ export class EnemyView {
           ease: "Cubic.In",
           onComplete: () => {
             trailTimer?.remove();
+            Sfx.explosion(this.scene);
             onImpact();
             this.scene.tweens.add({
               targets: this.container,
