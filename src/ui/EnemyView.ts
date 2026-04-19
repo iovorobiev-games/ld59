@@ -241,6 +241,10 @@ export class EnemyView {
     this.spawnDamageNumber(amount);
   }
 
+  getStrikeTarget(): { x: number; y: number } {
+    return { x: this.container.x, y: this.container.y + this.body.y };
+  }
+
   private spawnDamageNumber(amount: number): void {
     const x = this.healthBarWorldX + (Math.random() - 0.5) * 40;
     const y = this.healthBarWorldY;

@@ -2,10 +2,10 @@ export type LightState = "on" | "off";
 
 export type SignalId =
   | "confusion"
-  | "ignite"
+  | "fuelUp"
   | "shroud"
   | "calm"
-  | "burn"
+  | "lightning"
   | "extend";
 
 export interface Signal {
@@ -48,8 +48,8 @@ export const ALL_SIGNALS: readonly Signal[] = [
     description: "Stun enemy (skip next attack)",
   },
   {
-    id: "ignite",
-    name: "Ignite",
+    id: "fuelUp",
+    name: "Fuel Up",
     sequence: ["off", "on", "on"],
     description: "Restore 3 Fuel",
   },
@@ -66,8 +66,8 @@ export const ALL_SIGNALS: readonly Signal[] = [
     description: "Restore 2 Sanity",
   },
   {
-    id: "burn",
-    name: "Burn",
+    id: "lightning",
+    name: "Lightning",
     sequence: ["on", "on", "on"],
     description: "1 damage / turn this encounter",
   },
