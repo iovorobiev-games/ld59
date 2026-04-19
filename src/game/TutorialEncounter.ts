@@ -1,5 +1,14 @@
 import { Encounter, SwipeDirection } from "./Encounter";
-import { LightState, sequencesMatch } from "./Signal";
+import {
+  BB_ICON_LIT,
+  BB_ICON_UNLIT,
+  LightState,
+  sequencesMatch,
+} from "./Signal";
+
+// Rendered inline by rexBBCodeText; keep the visible ordering Off, On, On so
+// the player reads the same cue the tutorial mouth speaks.
+const FUEL_UP_ICONS = `${BB_ICON_UNLIT}, ${BB_ICON_LIT}, ${BB_ICON_LIT}`;
 
 export type TutorialPhase =
   | "greeting_1"
@@ -41,9 +50,9 @@ export class TutorialEncounter implements Encounter {
       case "after_right":
         return "Good. It takes some fuel\nto keep the lights on.";
       case "instruct_signal":
-        return "If you see the fuel\nis close to an end,\njust give me a signal:\n\"Off, On, On.\" Try it!";
+        return `If you see the fuel\nis close to an end,\njust give me a signal:\n"${FUEL_UP_ICONS}" Try it!`;
       case "wrong_signal":
-        return "No! That's not it.\nOff, On, On — that's for the fuel.\nTry again.";
+        return `No! That's not it.\n${FUEL_UP_ICONS} — that's for the fuel.\nTry again.`;
       case "after_cast":
         return "Good, here is your fuel.";
       case "final":

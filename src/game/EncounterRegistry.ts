@@ -4,6 +4,7 @@ import {
   FriendlyEncounter,
   StoryEncounter,
 } from "./Encounter";
+import { blinkIconsFor } from "./Signal";
 
 export interface EncounterContext {
   lightOn: boolean;
@@ -37,23 +38,26 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
       nextOnSuccess: "guardsman",
     }),
 
-  guardsman: (ctx) =>
-    new FriendlyEncounter({
+  guardsman: (ctx) => {
+    const blink = blinkIconsFor(ctx.lightOn);
+    return new FriendlyEncounter({
       sequence: ctx.lightOn ? ["left", "right"] : ["right", "left"],
       reward: { fuel: 2, sanity: 2 },
       successText:
         "Thank you. Here is some fuel\nfor your effort.\n+2 Fuel  +2 Sanity",
       failureText: "I guess I need to ask someone else...",
       character: "guard",
-      greeting:
-        "Couple of thugs looking to\nattack ships nearby.\nBlink the light if you know anything.",
+      greeting: `Couple of thugs looking to\nattack ships nearby.\nBlink ${blink} the light if you know anything.`,
       nextOnSuccess: "bandits_revenge",
       nextOnFailure: "bandits_shipwreck_again",
-      labelsForLight: (lightOn) =>
-        lightOn
-          ? { left: "Blink", right: "Stay bright" }
-          : { left: "Stay dark", right: "Blink" },
-    }),
+      labelsForLight: (lightOn) => {
+        const pair = blinkIconsFor(lightOn);
+        return lightOn
+          ? { left: `Blink ${pair}`, right: "Stay bright" }
+          : { left: "Stay dark", right: `Blink ${pair}` };
+      },
+    });
+  },
 
   bandits_revenge: () =>
     new StoryEncounter({

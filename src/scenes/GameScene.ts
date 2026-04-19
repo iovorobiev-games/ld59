@@ -15,7 +15,12 @@ import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { Sfx } from "../audio/Sfx";
 import { createText } from "../ui/fonts";
 import { PlayCardResult, SignalCastEffect } from "../game/GameState";
-import { SignalId, getSignal } from "../game/Signal";
+import {
+  BB_ICON_LIT,
+  BB_ICON_UNLIT,
+  SignalId,
+  getSignal,
+} from "../game/Signal";
 import { buildDefaultDeck } from "../game/EncounterManager";
 import {
   applyUrlResetFlag,
@@ -23,6 +28,8 @@ import {
   markTutorialCompleted,
 } from "../game/tutorialStore";
 
+const SEND_UNLIT_HINT = `Send ${BB_ICON_UNLIT} Signal`;
+const SEND_LIT_HINT = `Send ${BB_ICON_LIT} Signal`;
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
 const FRIENDLY_HOLD_MS = 2200;
@@ -410,7 +417,7 @@ export class GameScene extends Phaser.Scene {
       this.panel.setEffectHints("", "Light Up");
       this.panel.setSignalProgress(null);
     } else if (signalPhase) {
-      this.panel.setEffectHints("Send Off Signal", "Send On Signal");
+      this.panel.setEffectHints(SEND_UNLIT_HINT, SEND_LIT_HINT);
       this.panel.setSignalProgress(enc.tutorialSignal ?? []);
     } else {
       this.panel.setEffectHints("", "");
@@ -736,7 +743,7 @@ export class GameScene extends Phaser.Scene {
       this.showFriendly(enc);
       if (enc.teachingOffered) {
         this.panel.setCostVisible(true);
-        this.panel.setEffectHints("Send Off Signal", "Send On Signal");
+        this.panel.setEffectHints(SEND_UNLIT_HINT, SEND_LIT_HINT);
         this.panel.setRewardHints("", "");
         this.panel.setSignalProgress(enc.teachingSignal ?? []);
         this.armDialogueHint("right");

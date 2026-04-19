@@ -1,6 +1,8 @@
 import Phaser from "phaser";
+import BBCodeText from "phaser3-rex-plugins/plugins/gameobjects/tagtext/bbcodetext/BBCodeText";
 import { EncounterKind, SwipeDirection } from "../game/Encounter";
-import { createText } from "./fonts";
+import { BB_ICON_LIT, BB_ICON_UNLIT } from "../game/Signal";
+import { createBBCodeText } from "./fonts";
 
 export interface TurnIndicatorState {
   cardsPlayed: number;
@@ -13,16 +15,16 @@ export interface TurnIndicatorState {
 }
 
 export class TurnIndicator {
-  private encounterText: Phaser.GameObjects.Text;
-  private turnText: Phaser.GameObjects.Text;
+  private encounterText: BBCodeText;
+  private turnText: BBCodeText;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    this.encounterText = createText(scene, x, y, "", {
+    this.encounterText = createBBCodeText(scene, x, y, "", {
       fontSize: "28px",
       color: "#cccccc",
     }).setOrigin(0.5);
 
-    this.turnText = createText(scene, x, y + 40, "", {
+    this.turnText = createBBCodeText(scene, x, y + 40, "", {
       fontSize: "28px",
       color: "#ffffff",
       align: "center",
@@ -36,30 +38,30 @@ export class TurnIndicator {
     if (state.kind === "friendly") {
       const seq = state.friendlySequence ?? [];
       const progress = state.friendlyProgress ?? 0;
-      this.turnText
-        .setText(this.formatFriendly(seq, progress))
-        .setColor("#ffd97a");
+      this.turnText.setText(this.formatFriendly(seq, progress));
+      this.turnText.setColor("#ffd97a");
     } else if (state.kind === "unfriendly") {
       const remaining = Math.max(0, state.cardsPerTurn - state.cardsPlayed);
-      this.turnText
-        .setText(
-          `Cards this turn: ${state.cardsPlayed} / ${state.cardsPerTurn}  (${remaining} left)`,
-        )
-        .setColor("#ffffff");
+      this.turnText.setText(
+        `Cards this turn: ${state.cardsPlayed} / ${state.cardsPerTurn}  (${remaining} left)`,
+      );
+      this.turnText.setColor("#ffffff");
     } else if (state.kind === "story") {
-      this.turnText.setText("Click or swipe to continue").setColor("#ffd97a");
+      this.turnText.setText("Click or swipe to continue");
+      this.turnText.setColor("#ffd97a");
     } else {
       this.turnText.setText("");
     }
   }
 
   private formatFriendly(sequence: SwipeDirection[], progress: number): string {
+    // Done steps dim, the step due next highlights bright, upcoming stays default.
     return sequence
       .map((d, i) => {
-        const token = d === "left" ? "OFF" : "ON";
-        if (i < progress) return `·${token}·`;
-        if (i === progress) return `[${token}]`;
-        return token;
+        const icon = d === "left" ? BB_ICON_UNLIT : BB_ICON_LIT;
+        if (i < progress) return `[color=#666666]${icon}[/color]`;
+        if (i === progress) return `[color=#ffd97a]${icon}[/color]`;
+        return icon;
       })
       .join("  ");
   }

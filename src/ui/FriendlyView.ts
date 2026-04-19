@@ -1,11 +1,12 @@
 import Phaser from "phaser";
+import BBCodeText from "phaser3-rex-plugins/plugins/gameobjects/tagtext/bbcodetext/BBCodeText";
 import {
   FriendlyCharacter,
   SwipeDirection,
   TeachingStatus,
 } from "../game/Encounter";
-import { Signal, formatSignal } from "../game/Signal";
-import { createText } from "./fonts";
+import { Signal, formatSignalBBCode } from "../game/Signal";
+import { createBBCodeText } from "./fonts";
 import { TypewriterText } from "./TypewriterText";
 import { Sfx } from "../audio/Sfx";
 
@@ -68,7 +69,7 @@ export class FriendlyView {
   private character: Phaser.GameObjects.Image;
   private door: Phaser.GameObjects.Image;
   private textBg: Phaser.GameObjects.Rectangle;
-  private text: Phaser.GameObjects.Text;
+  private text: BBCodeText;
   private typewriter: TypewriterText;
   private slideTween?: Phaser.Tweens.Tween;
   private knockTween?: Phaser.Tweens.Tween;
@@ -118,8 +119,8 @@ export class FriendlyView {
       .setDepth(FRIENDLY_TEXT_DEPTH)
       .setVisible(false);
 
-    this.text = createText(scene, textWorldX, textWorldY, "", {
-      fontSize: "44px",
+    this.text = createBBCodeText(scene, textWorldX, textWorldY, "", {
+      fontSize: "36px",
       color: "#f5e6b8",
       align: "center",
       wordWrap: { width: DOOR_WIDTH - 120 },
@@ -214,10 +215,19 @@ export class FriendlyView {
     failureText: string,
   ): string {
     const header = status === "mistake" ? failureText : greeting;
+    // First line (e.g. "Blinding Abyss offered new Spells.") reads as its own
+    // beat; the remaining lines introduce the spell list below.
+    const firstBreak = header.indexOf("\n");
+    const lead = firstBreak === -1 ? header : header.slice(0, firstBreak);
+    const intro = firstBreak === -1 ? "" : header.slice(firstBreak + 1);
     const offers = offered
-      .map((s) => `${s.name}: ${formatSignal(s.sequence)}`)
-      .join("\n");
-    return `${header}\n${offers}`;
+      .map(
+        (s) =>
+          `${s.name}: ${formatSignalBBCode(s.sequence)}\n${s.description}`,
+      )
+      .join("\n\n");
+    const body = intro ? `${intro}\n${offers}` : offers;
+    return `${lead}\n\n${body}`;
   }
 
   private slideIn(onComplete: () => void): void {
