@@ -107,6 +107,7 @@ export class LighthouseView {
       width: 160,
       height: 32,
       fillColor: 0xff5252,
+      prefix: "HP ",
     });
     this.healthBar.setDepth(HUD_DEPTH);
 
