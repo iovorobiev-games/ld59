@@ -10,7 +10,6 @@ import {
   Encounter,
   FriendlyEncounter,
   FriendlyEncounterConfig,
-  GrandkidPlaceholder,
   NightEncounter,
   UnfriendlyEncounter,
   WizardTeachingPlaceholder,
@@ -353,15 +352,9 @@ function buildNightSlots(nightIdx: number): Encounter[] {
   const shipwreck = createEncounterById("bandits_shipwreck", { lightOn: false });
   const banditsSeeds: Encounter[] = shipwreck ? [shipwreck] : [];
 
-  // Grandkid cameo once per run, starting night 2 (by then the wizard has had
-  // a chance to teach Lightning). Materializes to the real encounter only if
-  // the player knows Lightning; otherwise swaps for a filler at runtime.
-  const specials: Encounter[] = [];
-  if (nightIdx === 1) specials.push(new GrandkidPlaceholder());
-
   const fillersNeeded = Math.max(
     0,
-    ENCOUNTERS_PER_NIGHT - 1 - otherEnemies.length - wizards.length - banditsSeeds.length - specials.length,
+    ENCOUNTERS_PER_NIGHT - 1 - otherEnemies.length - wizards.length - banditsSeeds.length,
   );
   const fillerPool = shuffle(FRIENDLY_POOL);
   const fillers: Encounter[] = [];
@@ -373,7 +366,6 @@ function buildNightSlots(nightIdx: number): Encounter[] {
     ...otherEnemies,
     ...wizards,
     ...banditsSeeds,
-    ...specials,
     ...fillers,
   ]);
   return [...frontSlots, lastEnemy];

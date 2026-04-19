@@ -8,7 +8,6 @@ import {
   FriendlyEncounter,
   FriendlyOutcome,
   FriendlyReward,
-  GrandkidPlaceholder,
   NightEncounter,
   StoryConsequence,
   StoryEncounter,
@@ -391,6 +390,9 @@ export class GameState {
         this.signalBook.learn(learned.id);
         result.friendlyMessage = `${learned.name} learned!`;
         result.friendlyMessageKind = "success";
+        if (learned.id === "lightning") {
+          this.encounters.replaceUpcomingFriendly(createGrandkidEncounter());
+        }
       }
     }
 
@@ -598,14 +600,6 @@ export class GameState {
       this.encounters.replaceCurrent(
         teaching ?? pickAffordableFriendlyReplacement(this.fuel),
       );
-      return;
-    }
-    if (enc instanceof GrandkidPlaceholder) {
-      const kid =
-        this.signalBook.knows("lightning") && this.fuel >= 3
-          ? createGrandkidEncounter()
-          : pickAffordableFriendlyReplacement(this.fuel);
-      this.encounters.replaceCurrent(kid);
       return;
     }
     if (!(enc instanceof FriendlyEncounter)) return;

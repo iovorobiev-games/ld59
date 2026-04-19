@@ -358,16 +358,6 @@ export class WizardTeachingPlaceholder implements Encounter {
   }
 }
 
-// Inserted at deck build time. GameState replaces it with the grandkid
-// encounter when the player knows the Lightning signal, or swaps it for a
-// regular filler friendly otherwise.
-export class GrandkidPlaceholder implements Encounter {
-  readonly kind = "friendly" as const;
-  isResolved(): boolean {
-    return false;
-  }
-}
-
 // Marker inserted between nights. GameScene reacts to this by playing the
 // full-screen "Night X" overlay; once dismissed, the scene resolves it and
 // advances to the first encounter of the night.
