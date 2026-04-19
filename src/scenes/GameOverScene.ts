@@ -23,17 +23,25 @@ export class GameOverScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(this.won ? "#0f1a05" : "#05080f");
     applyCrtPipeline(this);
 
-    createText(this, width / 2, height / 2 - 120, this.won ? "VICTORY" : "GAME OVER", {
-      fontSize: "180px",
-      color: this.won ? "#a6ff52" : "#ff5252",
-    }).setOrigin(0.5);
+    createText(
+      this,
+      width / 2,
+      height / 2 - 120,
+      this.won ? "THANKS FOR PLAYING" : "GAME OVER",
+      {
+        fontSize: this.won ? "140px" : "180px",
+        color: this.won ? "#a6ff52" : "#ff5252",
+      },
+    ).setOrigin(0.5);
 
     createText(
       this,
       width / 2,
       height / 2 + 20,
-      this.won ? "the coast is clear" : "the keeper lost his mind",
-      { fontSize: "48px", color: "#cccccc" },
+      this.won
+        ? "Lightkeeper was made in 48 hours for Ludum Dare 59"
+        : "the keeper lost his mind",
+      { fontSize: "40px", color: "#cccccc" },
     ).setOrigin(0.5);
 
     const buttonW = 480;

@@ -171,6 +171,7 @@ export class GameState {
   private fogApplied = false;
   private combatTutorial: CombatTutorial | null = null;
   private pendingCombatTutorial = false;
+  private storyFlags: Record<string, boolean> = {};
 
   constructor(opts: GameStateOpts = {}) {
     this.current = this.supplier.draw();
@@ -190,10 +191,20 @@ export class GameState {
   }
 
   private materializeIfDeferred(): void {
-    const enc = this.encounters.current();
-    if (enc instanceof DeferredEncounter) {
-      const created = createEncounterById(enc.id, { lightOn: this.lightOn });
-      if (created) this.encounters.replaceCurrent(created);
+    while (true) {
+      const enc = this.encounters.current();
+      if (!(enc instanceof DeferredEncounter)) return;
+      const created = createEncounterById(enc.id, {
+        lightOn: this.lightOn,
+        storyFlags: this.storyFlags,
+      });
+      if (created) {
+        this.encounters.replaceCurrent(created);
+        return;
+      }
+      // Registry rejected this encounter (e.g. conditional story whose
+      // prerequisite flag is unset). Remove it and re-check the new current.
+      if (!this.encounters.removeCurrent()) return;
     }
   }
 
@@ -380,11 +391,13 @@ export class GameState {
       if (step.shake) card.friendlyShake = true;
       if (step.outcome === "success") {
         this.applyReward(enc.reward);
+        this.mergeStoryFlags(enc.successFlags);
         result.friendlyMessage = enc.successText;
         result.friendlyMessageKind = "success";
         result.friendlyReward = { ...enc.reward };
       } else if (step.outcome === "fail") {
         this.applyReward(enc.failureReward);
+        this.mergeStoryFlags(enc.failureFlags);
         result.friendlyMessage = enc.failureText;
         result.friendlyMessageKind = "failure";
         result.friendlyReward = { ...enc.failureReward };
@@ -612,6 +625,10 @@ export class GameState {
     const first = affordable[0];
     const rest = shuffle(unknown.filter((s) => s.id !== first.id));
     return new TeachingEncounter({ offered: [first, rest[0]] });
+  }
+
+  private mergeStoryFlags(flags: Record<string, boolean>): void {
+    for (const key of Object.keys(flags)) this.storyFlags[key] = flags[key];
   }
 
   private applyReward(reward: FriendlyReward): void {
