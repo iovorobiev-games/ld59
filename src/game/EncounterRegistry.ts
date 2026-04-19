@@ -25,6 +25,8 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
       shakeOnFinalStep: true,
       nextOnSuccess: "ghost",
       nextOnFailure: "guardsman",
+      leftLabel: "Dim",
+      rightLabel: "Refuse",
     }),
 
   ghost: () =>
@@ -47,6 +49,10 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
         "Couple of thugs looking to\nattack ships nearby.\nBlink the light if you know anything.",
       nextOnSuccess: "bandits_revenge",
       nextOnFailure: "bandits_shipwreck_again",
+      labelsForLight: (lightOn) =>
+        lightOn
+          ? { left: "Blink", right: "Stay bright" }
+          : { left: "Stay dark", right: "Blink" },
     }),
 
   bandits_revenge: () =>
@@ -67,6 +73,8 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
         "Another ship full of cargo\nsailing close by.\nDim the lights so it crashes.\nSame share as before\n(3 Fuel, 2 HP).",
       progressTexts: ["More.", "More.", "Should be enough mate."],
       shakeOnFinalStep: true,
+      leftLabel: "Dim",
+      rightLabel: "Refuse",
     }),
 };
 

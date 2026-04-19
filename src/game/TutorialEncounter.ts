@@ -69,6 +69,21 @@ export class TutorialEncounter implements Encounter {
     return this.phase === "instruct_swipe" || this.phase === "wrong_left";
   }
 
+  isSignalPhase(): boolean {
+    return this.phase === "instruct_signal" || this.phase === "wrong_signal";
+  }
+
+  getSignal(): readonly LightState[] {
+    return this.signalBuffer;
+  }
+
+  expectedDirection(): SwipeDirection | null {
+    if (!this.isSignalPhase()) return null;
+    const next = IGNITE_SIGNAL[this.signalBuffer.length];
+    if (!next) return null;
+    return next === "off" ? "left" : "right";
+  }
+
   isResolved(): boolean {
     return this.phase === "done";
   }

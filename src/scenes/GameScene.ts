@@ -44,6 +44,11 @@ export class GameScene extends Phaser.Scene {
   private prevLightOn = false;
   private storyClickHandler?: () => void;
   private tutorialTimer?: Phaser.Time.TimerEvent;
+  private dialogueHintTimer?: Phaser.Time.TimerEvent;
+  private dialogueHintAgree: "left" | "right" = "right";
+  private dialogueHintActive = false;
+  private dialogueHintIncludeDecline = true;
+  private dialogueHintDelayMs = 10000;
 
   constructor() {
     super({ key: "GameScene" });
@@ -88,6 +93,7 @@ export class GameScene extends Phaser.Scene {
 
     const cardHomeX = width / 2;
     const cardHomeY = panelTop + PANEL_HEIGHT / 2;
+    this.input.on("pointerdown", () => this.handleCardInteractionStart());
     this.card = new CardView(
       this,
       cardHomeX,
@@ -156,6 +162,21 @@ export class GameScene extends Phaser.Scene {
         this.friendlyView.setText(result.card.friendlyProgressText);
       } else {
         this.showFriendly(snap.encounter);
+      }
+      if (snap.encounter.teachingOffered) {
+        this.panel.setSignalProgress(snap.encounter.teachingSignal ?? []);
+      } else {
+        // Labels and the next agree direction may shift mid-encounter (e.g. a
+        // blink quest flips once the first toggle lands).
+        this.panel.setEffectHints(
+          snap.encounter.outcomeLeftLabel ?? "",
+          snap.encounter.outcomeRightLabel ?? "",
+        );
+        this.panel.setRewardHints(
+          snap.encounter.outcomeLeftReward ?? "",
+          snap.encounter.outcomeRightReward ?? "",
+        );
+        this.armDialogueHint(snap.encounter.friendlyAgreeDirection ?? "right");
       }
     }
 
@@ -312,15 +333,34 @@ export class GameScene extends Phaser.Scene {
     if (enc?.kind !== "tutorial") return;
 
     this.cancelTutorialTimer();
+    this.cancelDialogueHint();
     const text = enc.tutorialText ?? "";
     const waits = enc.tutorialWaitsForPlayer ?? false;
-    const hint = enc.tutorialShowRightHint ?? false;
+    const firstSwipe = enc.tutorialShowRightHint ?? false;
+    const signalPhase = !!enc.tutorialSignal;
+    const expectedDir = enc.tutorialExpectedDirection;
 
-    if (!hint) this.card.stopSwipeHint();
+    this.card.stopSwipeHint();
+    if (firstSwipe) {
+      this.panel.setEffectHints("", "Light Up");
+      this.panel.setSignalProgress(null);
+    } else if (signalPhase) {
+      this.panel.setEffectHints("Send Off Signal", "Send On Signal");
+      this.panel.setSignalProgress(enc.tutorialSignal ?? []);
+    } else {
+      this.panel.setEffectHints("", "");
+      this.panel.setSignalProgress(null);
+    }
 
     this.friendlyView.showTutorial(text, () => {
       if (waits) {
-        if (hint) this.card.startSwipeHint("right");
+        // First tutorial swipe is right-only (decline path isn't a lesson
+        // here); signal phases follow the next expected signal state.
+        const agree = expectedDir ?? "right";
+        this.armDialogueHint(agree, {
+          includeDecline: !firstSwipe,
+          delayMs: 3000,
+        });
         return;
       }
       this.tutorialTimer = this.time.delayedCall(TUTORIAL_HOLD_MS, () =>
@@ -365,6 +405,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.cancelTutorialTimer();
+    this.cancelDialogueHint();
     const text = enc.combatTutorialText ?? "";
     const waits = enc.combatTutorialWaitsForPlayer ?? false;
     const expectedDir = enc.combatTutorialExpectedDirection;
@@ -372,7 +413,7 @@ export class GameScene extends Phaser.Scene {
 
     this.friendlyView.showTutorial(text, () => {
       if (waits) {
-        if (expectedDir) this.card.startSwipeHint(expectedDir);
+        if (expectedDir) this.armDialogueHint(expectedDir, { delayMs: 3000 });
         return;
       }
       this.tutorialTimer = this.time.delayedCall(TUTORIAL_HOLD_MS, () =>
@@ -399,6 +440,58 @@ export class GameScene extends Phaser.Scene {
     const handler = () => this.handleStoryAction();
     this.storyClickHandler = handler;
     this.input.once("pointerdown", handler);
+  }
+
+  private handleCardInteractionStart(): void {
+    if (!this.dialogueHintActive) return;
+    // Any pointer-down during a dialogue restarts the idle timer so the hint
+    // doesn't fire while the player is engaging with the card.
+    const includeDecline = this.dialogueHintIncludeDecline;
+    const delayMs = this.dialogueHintDelayMs;
+    this.cancelDialogueHint();
+    this.armDialogueHint(this.dialogueHintAgree, { includeDecline, delayMs });
+  }
+
+  private armDialogueHint(
+    agree: "left" | "right",
+    opts: { includeDecline?: boolean; delayMs?: number } = {},
+  ): void {
+    this.cancelDialogueHint();
+    this.dialogueHintAgree = agree;
+    this.dialogueHintIncludeDecline = opts.includeDecline ?? true;
+    this.dialogueHintDelayMs = opts.delayMs ?? 10000;
+    this.dialogueHintActive = true;
+    this.dialogueHintTimer = this.time.delayedCall(this.dialogueHintDelayMs, () =>
+      this.playDialogueHintSequence(),
+    );
+  }
+
+  private playDialogueHintSequence(): void {
+    if (!this.dialogueHintActive) return;
+    const decline: "left" | "right" =
+      this.dialogueHintAgree === "right" ? "left" : "right";
+    const scheduleNextIdle = () => {
+      if (!this.dialogueHintActive) return;
+      this.dialogueHintTimer = this.time.delayedCall(
+        this.dialogueHintDelayMs,
+        () => this.playDialogueHintSequence(),
+      );
+    };
+    this.card.startSwipeHint(this.dialogueHintAgree, () => {
+      if (!this.dialogueHintActive) return;
+      if (this.dialogueHintIncludeDecline) {
+        this.card.startSwipeHint(decline, scheduleNextIdle);
+      } else {
+        scheduleNextIdle();
+      }
+    });
+  }
+
+  private cancelDialogueHint(): void {
+    this.dialogueHintActive = false;
+    this.dialogueHintTimer?.remove(false);
+    this.dialogueHintTimer = undefined;
+    this.card.stopSwipeHint();
   }
 
   private disarmStoryResolution(): void {
@@ -481,6 +574,9 @@ export class GameScene extends Phaser.Scene {
     this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
     this.panel.setResources(snap.sanity, snap.fuel);
     this.disarmStoryResolution();
+    this.cancelDialogueHint();
+    this.panel.setSignalProgress(null);
+    this.panel.setRewardHints("", "");
     const hasTutorial =
       snap.encounter?.kind === "tutorial" ||
       !!snap.encounter?.combatTutorialPhase;
@@ -499,6 +595,7 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.setArmor(enc.enemyArmor ?? 0);
       this.lighthouse.setArmor(enc.lighthouseArmor ?? 0);
       this.enemyView.setIntent(enc.enemyIntent ?? null);
+      this.panel.setCostVisible(true);
       this.panel.setEffectHints("+1 armor", "Deal 1 dmg");
       if (enc.combatTutorialPhase) {
         this.renderCombatTutorial();
@@ -509,7 +606,25 @@ export class GameScene extends Phaser.Scene {
       this.enemyView.hide();
       this.lighthouse.setArmor(0);
       this.showFriendly(enc);
-      this.panel.setEffectHints("", "");
+      if (enc.teachingOffered) {
+        this.panel.setCostVisible(true);
+        this.panel.setEffectHints("Send Off Signal", "Send On Signal");
+        this.panel.setRewardHints("", "");
+        this.panel.setSignalProgress(enc.teachingSignal ?? []);
+        this.armDialogueHint("right");
+      } else {
+        this.panel.setCostVisible(true);
+        this.panel.setEffectHints(
+          enc.outcomeLeftLabel ?? "",
+          enc.outcomeRightLabel ?? "",
+        );
+        this.panel.setRewardHints(
+          enc.outcomeLeftReward ?? "",
+          enc.outcomeRightReward ?? "",
+        );
+        this.panel.setSignalProgress(null);
+        this.armDialogueHint(enc.friendlyAgreeDirection ?? "right");
+      }
     } else if (enc?.kind === "story") {
       this.enemyView.hide();
       this.lighthouse.setArmor(0);
@@ -520,17 +635,23 @@ export class GameScene extends Phaser.Scene {
         enc.storyCharacter ?? "wizard",
         enc.storyText ?? "",
       );
-      this.panel.setEffectHints("", "");
+      this.panel.setCostVisible(false);
+      this.panel.setEffectHints(
+        enc.outcomeLeftLabel ?? "",
+        enc.outcomeRightLabel ?? "",
+      );
       this.armStoryResolution();
     } else if (enc?.kind === "tutorial") {
       this.enemyView.hide();
       this.lighthouse.setArmor(0);
+      this.panel.setCostVisible(true);
       this.panel.setEffectHints("", "");
       this.renderTutorial();
     } else {
       this.enemyView.hide();
       this.lighthouse.setArmor(0);
       this.friendlyView.hide();
+      this.panel.setCostVisible(true);
       this.panel.setEffectHints("", "");
     }
 

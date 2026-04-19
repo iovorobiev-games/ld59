@@ -36,6 +36,15 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
+function defaultLabelFor(
+  sequence: readonly SwipeDirection[],
+  side: SwipeDirection,
+): string {
+  const agree = sequence[0] ?? "right";
+  if (side === agree) return "Yes";
+  return "No";
+}
+
 export function describeFriendlyReward(reward: FriendlyReward): string {
   const parts: string[] = [];
   if (reward.fuel) parts.push(`${signed(reward.fuel)} Fuel`);
@@ -47,6 +56,11 @@ export function describeFriendlyReward(reward: FriendlyReward): string {
 export type FriendlyOutcome = "progress" | "success" | "fail";
 
 export type FriendlyCharacter = "wizard" | "bandit" | "fisher";
+
+export interface FriendlyLabels {
+  left: string;
+  right: string;
+}
 
 export interface FriendlyEncounterConfig {
   sequence: SwipeDirection[];
@@ -61,6 +75,12 @@ export interface FriendlyEncounterConfig {
   nextOnFailure?: EncounterId;
   acceptAny?: boolean;
   failureReward?: FriendlyReward;
+  leftLabel?: string;
+  rightLabel?: string;
+  // Override for encounters whose outcome text depends on the current light
+  // state (e.g. a "blink" sequence flips which direction finishes the blink
+  // once the first toggle has happened).
+  labelsForLight?: (lightOn: boolean) => FriendlyLabels;
 }
 
 export interface FriendlyStepResult {
@@ -83,6 +103,9 @@ export class FriendlyEncounter implements Encounter {
   readonly nextOnFailure?: EncounterId;
   readonly acceptAny: boolean;
   readonly failureReward: FriendlyReward;
+  readonly leftLabel: string;
+  readonly rightLabel: string;
+  readonly labelsForLight?: (lightOn: boolean) => FriendlyLabels;
   private progress = 0;
   private failed = false;
 
@@ -99,6 +122,36 @@ export class FriendlyEncounter implements Encounter {
     this.nextOnFailure = config.nextOnFailure;
     this.acceptAny = config.acceptAny ?? false;
     this.failureReward = config.failureReward ?? {};
+    this.leftLabel = config.leftLabel ?? defaultLabelFor(this.sequence, "left");
+    this.rightLabel = config.rightLabel ?? defaultLabelFor(this.sequence, "right");
+    this.labelsForLight = config.labelsForLight;
+  }
+
+  currentLabels(lightOn: boolean): FriendlyLabels {
+    if (this.labelsForLight) return this.labelsForLight(lightOn);
+    return { left: this.leftLabel, right: this.rightLabel };
+  }
+
+  // Reward text surfaced to the hint under the cost. Every swipe along the
+  // agree path leads to the success reward; swipes off-path lead to failure.
+  rewardFor(direction: SwipeDirection): string {
+    if (this.isResolved()) return "";
+    if (this.acceptAny) return describeFriendlyReward(this.reward);
+    const expected = this.sequence[this.progress];
+    if (!expected) return "";
+    if (direction === expected) return describeFriendlyReward(this.reward);
+    return describeFriendlyReward(this.failureReward);
+  }
+
+  // The "agree" direction is the one that makes progress toward success; the
+  // other is "decline". For acceptAny encounters, left is conventionally agree.
+  agreeDirection(): SwipeDirection {
+    if (this.acceptAny) return "left";
+    return this.sequence[this.progress] ?? this.sequence[0] ?? "right";
+  }
+
+  declineDirection(): SwipeDirection {
+    return this.agreeDirection() === "left" ? "right" : "left";
   }
 
   notePlayed(direction: SwipeDirection): FriendlyStepResult {
@@ -169,6 +222,8 @@ export interface StoryEncounterConfig {
   character: FriendlyCharacter;
   consequence: StoryConsequence;
   nextOnSuccess?: EncounterId;
+  leftLabel?: string;
+  rightLabel?: string;
 }
 
 export class StoryEncounter implements Encounter {
@@ -177,6 +232,8 @@ export class StoryEncounter implements Encounter {
   readonly character: FriendlyCharacter;
   readonly consequence: StoryConsequence;
   readonly nextOnSuccess?: EncounterId;
+  readonly leftLabel: string;
+  readonly rightLabel: string;
   private resolved = false;
 
   constructor(config: StoryEncounterConfig) {
@@ -184,6 +241,8 @@ export class StoryEncounter implements Encounter {
     this.character = config.character;
     this.consequence = config.consequence;
     this.nextOnSuccess = config.nextOnSuccess;
+    this.leftLabel = config.leftLabel ?? "";
+    this.rightLabel = config.rightLabel ?? "";
   }
 
   resolve(): void {
@@ -260,6 +319,10 @@ export class TeachingEncounter implements Encounter {
 
   currentStatus(): TeachingStatus {
     return this.status;
+  }
+
+  getSignal(): readonly LightState[] {
+    return this.buffer;
   }
 
   getLearned(): Spell | null {

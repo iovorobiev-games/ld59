@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { LightState, SPELL_SEQUENCE_LENGTH } from "../game/Spell";
 import { createText } from "./fonts";
 
 const SANITY_HIGHLIGHT = 0x6f5fff;
@@ -11,6 +12,14 @@ const CARD_HALF_WIDTH = 124;
 const HINT_PAD = 30;
 export const PANEL_TOP_TRANSPARENT = 44;
 
+// Matches SpellListView's CURRENT-signal dot styling so the player reads the
+// same visual language across both surfaces.
+const DOT_RADIUS = 6;
+const DOT_SPACING = 18;
+const DOT_ON_COLOR = 0xffd27a;
+const DOT_OFF_COLOR = 0x444455;
+const DOT_EMPTY_COLOR = 0x2a2a3a;
+
 export class BottomPanel {
   private scene: Phaser.Scene;
   private sanityText: Phaser.GameObjects.Text;
@@ -21,10 +30,16 @@ export class BottomPanel {
   private rightImpact: Phaser.GameObjects.Text;
   private leftEffect: Phaser.GameObjects.Text;
   private rightEffect: Phaser.GameObjects.Text;
+  private leftReward: Phaser.GameObjects.Text;
+  private rightReward: Phaser.GameObjects.Text;
   private cardCenterX: number;
   private prevSanity = 0;
   private prevFuel = 0;
   private initialized = false;
+  private costVisible = true;
+  private leftSignalDots: Phaser.GameObjects.Arc[] = [];
+  private rightSignalDots: Phaser.GameObjects.Arc[] = [];
+  private signalVisible = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -106,6 +121,7 @@ export class BottomPanel {
     this.leftEffect = createText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
       color: "#b0a6ff",
+      align: "right",
     })
       .setOrigin(1, 0.5)
       .setAlpha(0)
@@ -114,15 +130,81 @@ export class BottomPanel {
     this.rightEffect = createText(scene, 0, cardCenterY - 10, "", {
       fontSize: "48px",
       color: "#4a2a08",
+      align: "center",
     })
       .setOrigin(0, 0.5)
       .setAlpha(0)
       .setDepth(10);
+
+    this.leftReward = createText(scene, 0, cardCenterY + 90, "", {
+      fontSize: "26px",
+      color: "#b0a6ff",
+      align: "right",
+    })
+      .setOrigin(1, 0)
+      .setAlpha(0)
+      .setDepth(10);
+
+    this.rightReward = createText(scene, 0, cardCenterY + 90, "", {
+      fontSize: "26px",
+      color: "#4a2a08",
+      align: "left",
+    })
+      .setOrigin(0, 0)
+      .setAlpha(0)
+      .setDepth(10);
+
+    // Signal progress dots sit inline at the end of each effect hint, mirroring
+    // SpellListView's CURRENT indicator so the visual language stays consistent.
+    // Position is set each frame in setSwipeHint so the dots follow the card.
+    const dotsY = cardCenterY - 10;
+    for (let i = 0; i < SPELL_SEQUENCE_LENGTH; i++) {
+      this.leftSignalDots.push(
+        scene.add
+          .circle(0, dotsY, DOT_RADIUS, DOT_EMPTY_COLOR)
+          .setStrokeStyle(1, 0x101018)
+          .setDepth(10)
+          .setAlpha(0),
+      );
+      this.rightSignalDots.push(
+        scene.add
+          .circle(0, dotsY, DOT_RADIUS, DOT_EMPTY_COLOR)
+          .setStrokeStyle(1, 0x101018)
+          .setDepth(10)
+          .setAlpha(0),
+      );
+    }
+  }
+
+  setSignalProgress(signal: readonly LightState[] | null): void {
+    this.signalVisible = signal !== null;
+    if (!signal) return;
+    const applyState = (dot: Phaser.GameObjects.Arc, i: number) => {
+      const state = signal[i];
+      if (state === undefined) dot.fillColor = DOT_EMPTY_COLOR;
+      else dot.fillColor = state === "on" ? DOT_ON_COLOR : DOT_OFF_COLOR;
+    };
+    this.leftSignalDots.forEach(applyState);
+    this.rightSignalDots.forEach(applyState);
   }
 
   setEffectHints(leftText: string, rightText: string): void {
     this.leftEffect.setText(leftText);
     this.rightEffect.setText(rightText);
+  }
+
+  setRewardHints(leftReward: string, rightReward: string): void {
+    this.leftReward.setText(leftReward);
+    this.rightReward.setText(rightReward);
+    // Paint negative values red so players immediately read a losing choice.
+    this.leftReward.setColor(leftReward.startsWith("-") ? "#ff7070" : "#b0a6ff");
+    this.rightReward.setColor(
+      rightReward.startsWith("-") ? "#ff7070" : "#4a2a08",
+    );
+  }
+
+  setCostVisible(visible: boolean): void {
+    this.costVisible = visible;
   }
 
   setResources(sanity: number, fuel: number): void {
@@ -206,14 +288,16 @@ export class BottomPanel {
     const rightAlpha = ramp(right);
 
     this.sanityHighlight.fillAlpha = leftAlpha * 0.45;
-    this.leftImpact.setAlpha(leftAlpha);
+    this.leftImpact.setAlpha(this.costVisible ? leftAlpha : 0);
     const leftX =
       this.cardCenterX - CARD_HALF_WIDTH - HINT_PAD + Math.min(0, dragOffset);
     this.leftImpact.x = leftX;
     this.leftEffect.x = leftX;
     this.leftEffect.setAlpha(this.leftEffect.text ? leftAlpha : 0);
+    this.leftReward.x = leftX;
+    this.leftReward.setAlpha(this.leftReward.text ? leftAlpha : 0);
 
-    if (fuelAvailable) {
+    if (fuelAvailable || !this.costVisible) {
       this.fuelHighlight.fillColor = FUEL_HIGHLIGHT;
       this.fuelHighlight.fillAlpha = rightAlpha * 0.45;
       this.rightImpact.setText(`-${fuelCost} Fuel`).setColor("#4a2a08");
@@ -224,12 +308,36 @@ export class BottomPanel {
       this.rightImpact.setText("No fuel left!").setColor("#ff5252");
       this.rightEffect.setColor("#ff5252");
     }
-    this.rightImpact.setAlpha(rightAlpha);
+    this.rightImpact.setAlpha(this.costVisible ? rightAlpha : 0);
     const rightX =
       this.cardCenterX + CARD_HALF_WIDTH + HINT_PAD + Math.max(0, dragOffset);
     this.rightImpact.x = rightX;
     this.rightEffect.x = rightX;
-    this.rightEffect.setAlpha(fuelAvailable && this.rightEffect.text ? rightAlpha : 0);
+    const canShowEffect = this.costVisible ? fuelAvailable : true;
+    this.rightEffect.setAlpha(canShowEffect && this.rightEffect.text ? rightAlpha : 0);
+    this.rightReward.x = rightX;
+    this.rightReward.setAlpha(
+      canShowEffect && this.rightReward.text ? rightAlpha : 0,
+    );
+
+    const leftSignalAlpha = this.signalVisible ? leftAlpha : 0;
+    const rightSignalAlpha = this.signalVisible ? rightAlpha : 0;
+    // Dots trail the effect text reading left-to-right. On the right side they
+    // sit just after the text; on the left they flow outward so the whole hint
+    // reads "●●● Send Off Signal" symmetrically with the right-side composition.
+    const dotPad = 12;
+    const leftTextLeftEdge = leftX - this.leftEffect.width;
+    const leftDotsStart =
+      leftTextLeftEdge - dotPad - (SPELL_SEQUENCE_LENGTH - 1) * DOT_SPACING;
+    this.leftSignalDots.forEach((dot, i) => {
+      dot.x = leftDotsStart + i * DOT_SPACING;
+      dot.setAlpha(leftSignalAlpha);
+    });
+    const rightDotsStart = rightX + this.rightEffect.width + dotPad;
+    this.rightSignalDots.forEach((dot, i) => {
+      dot.x = rightDotsStart + i * DOT_SPACING;
+      dot.setAlpha(rightSignalAlpha);
+    });
   }
 }
 

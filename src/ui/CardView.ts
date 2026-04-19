@@ -8,9 +8,14 @@ export type SwipePredicate = (direction: SwipeDirection) => boolean;
 const CARD_W = 248;
 const SWIPE_THRESHOLD = 160;
 const MAX_ROTATION = 0.35;
-const HINT_OFFSET_X = 60;
-const HINT_ROTATION = 0.08;
-const HINT_DURATION = 520;
+
+// Slide the card far enough that BottomPanel's impact + effect text reach full
+// opacity (HINT_FULL_PX in BottomPanel is 140).
+const HINT_OFFSET_X = 150;
+const HINT_ROTATION = 0.12;
+const HINT_SLIDE_DURATION = 380;
+const HINT_HOLD_DURATION = 1000;
+
 const SHADOW_OFFSET_X = 10;
 const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.45;
@@ -29,6 +34,8 @@ export class CardView {
   private onSwipe: SwipeCallback;
   private canSwipe: SwipePredicate;
   private hintTween?: Phaser.Tweens.Tween;
+  private hintHoldTimer?: Phaser.Time.TimerEvent;
+  private hintActive = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -71,25 +78,53 @@ export class CardView {
     this.container.setScale(1);
   }
 
-  startSwipeHint(direction: SwipeDirection): void {
-    if (this.hintTween) return;
+  // Play a hint animation toward `direction`. If `onCycleEnd` is provided,
+  // plays a single cycle (slide in, hold, snap home) and invokes it. Otherwise
+  // loops indefinitely until stopSwipeHint is called.
+  startSwipeHint(direction: SwipeDirection, onCycleEnd?: () => void): void {
+    this.cancelHint();
+    this.hintActive = true;
+    this.runHintCycle(direction, onCycleEnd);
+  }
+
+  private runHintCycle(
+    direction: SwipeDirection,
+    onCycleEnd?: () => void,
+  ): void {
+    if (!this.hintActive) return;
+    const sign = direction === "right" ? 1 : -1;
     this.container.setPosition(this.homeX, this.homeY);
     this.container.setRotation(0);
-    const sign = direction === "right" ? 1 : -1;
     this.hintTween = this.scene.tweens.add({
       targets: this.container,
       x: this.homeX + HINT_OFFSET_X * sign,
       rotation: HINT_ROTATION * sign,
-      duration: HINT_DURATION,
-      ease: "Sine.InOut",
-      yoyo: true,
-      repeat: -1,
+      duration: HINT_SLIDE_DURATION,
+      ease: "Sine.Out",
+      onComplete: () => {
+        if (!this.hintActive) return;
+        this.hintHoldTimer = this.scene.time.delayedCall(
+          HINT_HOLD_DURATION,
+          () => {
+            if (!this.hintActive) return;
+            // Snap home instantly, then either call back once or loop.
+            this.container.setPosition(this.homeX, this.homeY);
+            this.container.setRotation(0);
+            if (onCycleEnd) {
+              this.hintActive = false;
+              onCycleEnd();
+            } else {
+              this.runHintCycle(direction);
+            }
+          },
+        );
+      },
     });
   }
 
   stopSwipeHint(): void {
-    if (!this.hintTween) return;
-    this.killHintTween();
+    if (!this.hintActive && !this.hintTween && !this.hintHoldTimer) return;
+    this.cancelHint();
     this.scene.tweens.add({
       targets: this.container,
       x: this.homeX,
@@ -99,14 +134,20 @@ export class CardView {
     });
   }
 
-  private killHintTween(): void {
+  private cancelHint(): void {
+    this.hintActive = false;
     this.hintTween?.stop();
     this.hintTween = undefined;
+    this.hintHoldTimer?.remove(false);
+    this.hintHoldTimer = undefined;
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
     if (this.locked) return;
-    this.killHintTween();
+    this.cancelHint();
+    this.scene.tweens.killTweensOf(this.container);
+    this.container.setPosition(this.homeX, this.homeY);
+    this.container.setRotation(0);
     this.dragging = true;
     this.dragStartX = this.container.x;
     this.dragStartPointerX = pointer.x;
@@ -162,8 +203,9 @@ export class CardView {
     });
   }
 
+  // Returns the current horizontal offset from home, whether from a drag or
+  // from a hint tween. BottomPanel uses this to fade in cost/outcome text.
   getDragOffset(): number {
-    if (!this.dragging) return 0;
     return this.container.x - this.homeX;
   }
 
