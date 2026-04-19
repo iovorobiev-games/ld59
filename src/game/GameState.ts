@@ -385,6 +385,7 @@ export class GameState {
         result.lightningDamage = dealt;
       }
     } else if (enc instanceof FriendlyEncounter) {
+      enc.noteSignalCast(matched?.id);
       const step = enc.notePlayed(direction);
       card.friendlyOutcome = step.outcome;
       if (step.progressText) card.friendlyProgressText = step.progressText;

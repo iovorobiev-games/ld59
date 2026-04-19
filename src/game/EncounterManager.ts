@@ -177,6 +177,7 @@ export function createGrandkidEncounter(): FriendlyEncounter {
       "Grandpa says you can summon\nlightning with your lighthouse!\nShow me!",
     leftLabel: "Hide",
     rightLabel: "Show",
+    resolveOnSignal: "lightning",
   });
 }
 
@@ -214,6 +215,7 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
     leftLabel: cfg.leftLabel,
     rightLabel: cfg.rightLabel,
     labelsForLight: cfg.labelsForLight,
+    resolveOnSignal: cfg.resolveOnSignal,
   });
 }
 
