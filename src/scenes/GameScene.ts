@@ -80,7 +80,7 @@ export class GameScene extends Phaser.Scene {
     this.friendlyView = new FriendlyView(this, width, panelTop + PANEL_TOP_TRANSPARENT);
     this.panel = new BottomPanel(this, panelTop, width, PANEL_HEIGHT);
 
-    this.turnIndicator = new TurnIndicator(this, width - 260, 40);
+    this.turnIndicator = new TurnIndicator(this, width - 260, 48);
 
     this.signalList = new SignalListView(this, height, this.state.snapshot().knownSignalIds);
 
