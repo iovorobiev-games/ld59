@@ -64,4 +64,3 @@ Game resolution is 1920x1080 with `Phaser.Scale.FIT` auto-centering. Assets live
 - **Build workflow** (`.github/workflows/build.yml`): Runs on PRs and master pushes. Node 20, `npm ci`, `npm run build`, uploads `dist/` as artifact.
 - **Deploy workflow** (`.github/workflows/build_deploy.yml`): Runs on GitHub releases or manual dispatch. Calls the build workflow then deploys to itch.io via Butler. Requires `BUTLER_CREDENTIALS` secret and `ITCH_USER` / `ITCH_GAME` variables.
 - **Claude Code** (`.github/workflows/claude.yml`): Responds to `@claude` mentions in issues/PRs.
-- **Claude Code Review** (`.github/workflows/claude-code-review.yml`): Automated review on PR open/sync.
