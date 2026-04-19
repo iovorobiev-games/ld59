@@ -23,7 +23,6 @@ import {
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
 const FRIENDLY_HOLD_MS = 2200;
-const STORY_AUTO_RESOLVE_MS = 2500;
 const STORY_OVERLAY_HOLD_MS = 1400;
 const TUTORIAL_HOLD_MS = 2000;
 const TUTORIAL_FAREWELL_MS = 600;
@@ -43,7 +42,6 @@ export class GameScene extends Phaser.Scene {
   private spellList!: SpellListView;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
   private prevLightOn = false;
-  private storyTimer?: Phaser.Time.TimerEvent;
   private storyClickHandler?: () => void;
   private tutorialTimer?: Phaser.Time.TimerEvent;
 
@@ -150,7 +148,8 @@ export class GameScene extends Phaser.Scene {
         snap.encounter.enemyHealth ?? 0,
         snap.encounter.enemyMaxHealth ?? 1,
       );
-      this.enemyView.setPendingReduction(snap.encounter.enemyPendingReduction ?? 0);
+      this.enemyView.setArmor(snap.encounter.enemyArmor ?? 0);
+      this.lighthouse.setArmor(snap.encounter.lighthouseArmor ?? 0);
       this.enemyView.setIntent(snap.encounter.enemyIntent ?? null);
     } else if (snap.encounter?.kind === "friendly") {
       if (result.card.friendlyProgressText) {
@@ -397,19 +396,12 @@ export class GameScene extends Phaser.Scene {
 
   private armStoryResolution(): void {
     this.disarmStoryResolution();
-    this.storyTimer = this.time.delayedCall(STORY_AUTO_RESOLVE_MS, () =>
-      this.handleStoryAction(),
-    );
     const handler = () => this.handleStoryAction();
     this.storyClickHandler = handler;
     this.input.once("pointerdown", handler);
   }
 
   private disarmStoryResolution(): void {
-    if (this.storyTimer) {
-      this.storyTimer.remove(false);
-      this.storyTimer = undefined;
-    }
     if (this.storyClickHandler) {
       this.input.off("pointerdown", this.storyClickHandler);
       this.storyClickHandler = undefined;
@@ -504,9 +496,10 @@ export class GameScene extends Phaser.Scene {
         enc.enemyHealth ?? 0,
         enc.enemyMaxHealth ?? 1,
       );
-      this.enemyView.setPendingReduction(enc.enemyPendingReduction ?? 0);
+      this.enemyView.setArmor(enc.enemyArmor ?? 0);
+      this.lighthouse.setArmor(enc.lighthouseArmor ?? 0);
       this.enemyView.setIntent(enc.enemyIntent ?? null);
-      this.panel.setEffectHints("-1 dmg to monster", "Deal 1 dmg");
+      this.panel.setEffectHints("+1 armor", "Deal 1 dmg");
       if (enc.combatTutorialPhase) {
         this.renderCombatTutorial();
       } else {
@@ -514,10 +507,12 @@ export class GameScene extends Phaser.Scene {
       }
     } else if (enc?.kind === "friendly") {
       this.enemyView.hide();
+      this.lighthouse.setArmor(0);
       this.showFriendly(enc);
       this.panel.setEffectHints("", "");
     } else if (enc?.kind === "story") {
       this.enemyView.hide();
+      this.lighthouse.setArmor(0);
       this.friendlyView.show(
         [],
         0,
@@ -529,10 +524,12 @@ export class GameScene extends Phaser.Scene {
       this.armStoryResolution();
     } else if (enc?.kind === "tutorial") {
       this.enemyView.hide();
+      this.lighthouse.setArmor(0);
       this.panel.setEffectHints("", "");
       this.renderTutorial();
     } else {
       this.enemyView.hide();
+      this.lighthouse.setArmor(0);
       this.friendlyView.hide();
       this.panel.setEffectHints("", "");
     }
@@ -575,6 +572,10 @@ export class GameScene extends Phaser.Scene {
 
   update(): void {
     const snap = this.state.snapshot();
-    this.panel.setSwipeHint(this.card.getDragOffset(), snap.fuel > 0);
+    this.panel.setSwipeHint(
+      this.card.getDragOffset(),
+      snap.fuel >= snap.lightFuelCost,
+      snap.lightFuelCost,
+    );
   }
 }

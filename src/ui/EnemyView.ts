@@ -161,9 +161,9 @@ export class EnemyView {
     this.healthBar.set(current, max);
   }
 
-  setPendingReduction(amount: number): void {
+  setArmor(amount: number): void {
     if (amount > 0) {
-      this.reductionLabel.setText(`-${amount} dmg`);
+      this.reductionLabel.setText(`\u26e8 ${amount} armor`);
       this.reductionLabel.setVisible(true);
     } else {
       this.reductionLabel.setVisible(false);

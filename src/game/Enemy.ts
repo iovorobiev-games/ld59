@@ -11,7 +11,7 @@ export class Enemy {
   readonly maxHealth: number;
   private currentHealth: number;
   private readonly abilities: Ability[];
-  private damageReductionNext = 0;
+  private armorAmount = 0;
   private nextAbility: Ability | null = null;
   private damageBonusAmount = 0;
 
@@ -46,18 +46,22 @@ export class Enemy {
     this.damageBonusAmount += amount;
   }
 
-  queueDamageReduction(amount: number): void {
-    this.damageReductionNext += amount;
+  addArmor(amount: number): void {
+    this.armorAmount += amount;
   }
 
-  consumeDamageReduction(incomingDamage: number): number {
-    const applied = Math.min(this.damageReductionNext, incomingDamage);
-    this.damageReductionNext = 0;
-    return applied;
+  absorbDamage(incoming: number): number {
+    const absorbed = Math.min(this.armorAmount, incoming);
+    this.armorAmount -= absorbed;
+    return absorbed;
   }
 
-  get pendingReduction(): number {
-    return this.damageReductionNext;
+  resetArmor(): void {
+    this.armorAmount = 0;
+  }
+
+  get armor(): number {
+    return this.armorAmount;
   }
 
   get intent(): Ability | null {

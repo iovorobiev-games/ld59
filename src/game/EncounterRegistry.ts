@@ -31,7 +31,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
     new StoryEncounter({
       text: "It's because of you our ship crashed!\nI died because of you!",
       character: "wizard",
-      consequence: { sanity: -4 },
+      consequence: { sanity: -2 },
       nextOnSuccess: "guardsman",
     }),
 

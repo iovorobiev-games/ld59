@@ -44,7 +44,8 @@ export interface EncounterSnapshot {
   enemyName?: string;
   enemyHealth?: number;
   enemyMaxHealth?: number;
-  enemyPendingReduction?: number;
+  enemyArmor?: number;
+  lighthouseArmor?: number;
   enemyIntent?: AbilityIntent;
   friendlySequence?: SwipeDirection[];
   friendlyProgress?: number;
@@ -76,6 +77,7 @@ export interface GameStateSnapshot {
   phase: GamePhase;
   cardsThisTurn: number;
   cardsPerTurn: number;
+  lightFuelCost: number;
   encounter: EncounterSnapshot | null;
   spellSequence: readonly LightState[];
   knownSpellIds: readonly SpellId[];
@@ -149,6 +151,7 @@ export class GameState {
   private spellBook: SpellBook;
   private stunNextAttack = false;
   private lighthouseDefence = 0;
+  private lighthouseArmor = 0;
   private extraActionsThisTurn = 0;
   private burnActiveInEncounter = false;
   private combatTutorial: CombatTutorial | null = null;
@@ -193,6 +196,7 @@ export class GameState {
       phase: this.phase,
       cardsThisTurn: this.cardsThisTurn,
       cardsPerTurn: CARDS_PER_TURN + this.extraActionsThisTurn,
+      lightFuelCost: this.lightFuelCost,
       encounter: this.snapshotEncounter(),
       spellSequence: [...this.spellBook.sequence()],
       knownSpellIds: [...this.spellBook.knownIds()],
@@ -213,7 +217,8 @@ export class GameState {
         enemyName: enc.enemy.name,
         enemyHealth: enc.enemy.health,
         enemyMaxHealth: enc.enemy.maxHealth,
-        enemyPendingReduction: enc.enemy.pendingReduction,
+        enemyArmor: enc.enemy.armor,
+        lighthouseArmor: this.lighthouseArmor,
         enemyIntent: enc.enemy.intentDisplay ?? undefined,
       };
       if (this.combatTutorial) {
@@ -319,10 +324,12 @@ export class GameState {
 
     if (enc instanceof UnfriendlyEncounter) {
       if (direction === "right") {
-        enc.enemy.takeDamage(1);
-        card.damageDealt = 1;
+        const absorbed = enc.enemy.absorbDamage(1);
+        const dealt = 1 - absorbed;
+        if (dealt > 0) enc.enemy.takeDamage(dealt);
+        card.damageDealt = dealt;
       } else {
-        enc.enemy.queueDamageReduction(1);
+        this.lighthouseArmor += 1;
         card.reductionAdded = 1;
       }
     } else if (enc instanceof FriendlyEncounter) {
@@ -370,7 +377,9 @@ export class GameState {
     if (this.cardsThisTurn >= CARDS_PER_TURN + this.extraActionsThisTurn) {
       if (enc instanceof UnfriendlyEncounter) {
         if (this.burnActiveInEncounter && !enc.enemy.isDead()) {
-          enc.enemy.takeDamage(1);
+          const burnAbsorbed = enc.enemy.absorbDamage(1);
+          const burnDealt = 1 - burnAbsorbed;
+          if (burnDealt > 0) enc.enemy.takeDamage(burnDealt);
         }
         if (enc.enemy.isDead()) {
           result.encounterResolvedKind = enc.kind;
@@ -380,6 +389,7 @@ export class GameState {
           this.phase = "transitioning";
           return result;
         }
+        enc.enemy.resetArmor();
         if (this.stunNextAttack) {
           this.stunNextAttack = false;
         } else {
@@ -393,6 +403,7 @@ export class GameState {
           });
           result.enemyAttack = ev;
         }
+        this.lighthouseArmor = 0;
         if (!enc.enemy.isDead()) enc.enemy.rollIntent();
       }
       this.cardsThisTurn = 0;
@@ -413,6 +424,7 @@ export class GameState {
     this.burnActiveInEncounter = false;
     this.stunNextAttack = false;
     this.lighthouseDefence = 0;
+    this.lighthouseArmor = 0;
     this.extraActionsThisTurn = 0;
     const next = this.encounters.advance();
     if (!next) {
@@ -495,10 +507,12 @@ export class GameState {
     const card: CardPlayEffect = {};
     const result: PlayCardResult = { card };
     if (direction === "right") {
-      enc.enemy.takeDamage(1);
-      card.damageDealt = 1;
+      const absorbed = enc.enemy.absorbDamage(1);
+      const dealt = 1 - absorbed;
+      if (dealt > 0) enc.enemy.takeDamage(dealt);
+      card.damageDealt = dealt;
     } else {
-      enc.enemy.queueDamageReduction(1);
+      this.lighthouseArmor += 1;
       card.reductionAdded = 1;
     }
     this.combatTutorial?.handleSwipe(direction);
@@ -594,10 +608,14 @@ export class GameState {
   }
 
   private applyLighthouseDamage(amount: number): void {
-    const reduction = Math.min(this.lighthouseDefence, amount);
-    this.lighthouseDefence -= reduction;
-    const dealt = amount - reduction;
-    this.health = Math.max(0, this.health - dealt);
+    let remaining = amount;
+    const armorAbsorbed = Math.min(this.lighthouseArmor, remaining);
+    this.lighthouseArmor -= armorAbsorbed;
+    remaining -= armorAbsorbed;
+    const defenceAbsorbed = Math.min(this.lighthouseDefence, remaining);
+    this.lighthouseDefence -= defenceAbsorbed;
+    remaining -= defenceAbsorbed;
+    this.health = Math.max(0, this.health - remaining);
   }
 
   private applySanityDamage(amount: number): void {

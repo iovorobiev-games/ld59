@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { HealthBar } from "./HealthBar";
+import { createText } from "./fonts";
 import { SILHOUETTE_PIPELINE_KEY } from "../pipelines/SilhouettePipeline";
 
 const SKY_COLOR = 0x0b0c06;
@@ -20,6 +21,7 @@ export class LighthouseView {
   private leftBeam: Phaser.GameObjects.Polygon;
   private rightBeam: Phaser.GameObjects.Polygon;
   private healthBar: HealthBar;
+  private armorLabel: Phaser.GameObjects.Text;
   private lightOn = true;
   private impactX: number;
   private impactY: number;
@@ -90,6 +92,13 @@ export class LighthouseView {
       fillColor: 0xff5252,
     });
 
+    this.armorLabel = createText(scene, cx, 100, "", {
+      fontSize: "26px",
+      color: "#9fd6ff",
+    })
+      .setOrigin(0.5)
+      .setVisible(false);
+
     this.scheduleFlicker();
   }
 
@@ -152,6 +161,15 @@ export class LighthouseView {
 
   setHealth(current: number, max: number): void {
     this.healthBar.set(current, max);
+  }
+
+  setArmor(amount: number): void {
+    if (amount > 0) {
+      this.armorLabel.setText(`\u26e8 ${amount} armor`);
+      this.armorLabel.setVisible(true);
+    } else {
+      this.armorLabel.setVisible(false);
+    }
   }
 
   getImpactPoint(): { x: number; y: number } {
