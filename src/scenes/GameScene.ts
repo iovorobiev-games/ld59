@@ -474,7 +474,11 @@ export class GameScene extends Phaser.Scene {
         if (expectedDir) this.armDialogueHint(expectedDir, { delayMs: 3000 });
         return;
       }
-      this.tutorialTimer = this.time.delayedCall(TUTORIAL_HOLD_MS, () =>
+      const hold =
+        phase === "turn_warning" || phase === "outro"
+          ? TUTORIAL_HOLD_MS + 2000
+          : TUTORIAL_HOLD_MS;
+      this.tutorialTimer = this.time.delayedCall(hold, () =>
         this.advanceCombatTutorial(),
       );
     });
