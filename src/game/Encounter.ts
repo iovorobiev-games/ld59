@@ -6,7 +6,8 @@ export type EncounterKind =
   | "unfriendly"
   | "story"
   | "tutorial"
-  | "deferred";
+  | "deferred"
+  | "night";
 export type SwipeDirection = "left" | "right";
 export type EncounterId = string;
 
@@ -81,6 +82,10 @@ export interface FriendlyEncounterConfig {
   nextOnFailure?: EncounterId;
   acceptAny?: boolean;
   failureReward?: FriendlyReward;
+  // Filler friendlies set this true so chain-followup encounters are allowed
+  // to replace them. Seeds (e.g. bandits_shipwreck), loot fishers, and chain
+  // steps leave this false so the deck's mandatory beats survive.
+  replaceable?: boolean;
   leftLabel?: string;
   rightLabel?: string;
   // Override for encounters whose outcome text depends on the current light
@@ -109,6 +114,7 @@ export class FriendlyEncounter implements Encounter {
   readonly nextOnFailure?: EncounterId;
   readonly acceptAny: boolean;
   readonly failureReward: FriendlyReward;
+  readonly replaceable: boolean;
   readonly leftLabel: string;
   readonly rightLabel: string;
   readonly labelsForLight?: (lightOn: boolean) => FriendlyLabels;
@@ -128,6 +134,7 @@ export class FriendlyEncounter implements Encounter {
     this.nextOnFailure = config.nextOnFailure;
     this.acceptAny = config.acceptAny ?? false;
     this.failureReward = config.failureReward ?? {};
+    this.replaceable = config.replaceable ?? false;
     this.leftLabel = config.leftLabel ?? defaultLabelFor(this.sequence, "left");
     this.rightLabel = config.rightLabel ?? defaultLabelFor(this.sequence, "right");
     this.labelsForLight = config.labelsForLight;
@@ -347,5 +354,23 @@ export class WizardTeachingPlaceholder implements Encounter {
   readonly kind = "friendly" as const;
   isResolved(): boolean {
     return false;
+  }
+}
+
+// Marker inserted between nights. GameScene reacts to this by playing the
+// full-screen "Night X" overlay; once dismissed, the scene resolves it and
+// advances to the first encounter of the night.
+export class NightEncounter implements Encounter {
+  readonly kind = "night" as const;
+  private resolved = false;
+
+  constructor(readonly nightNumber: number) {}
+
+  resolve(): void {
+    this.resolved = true;
+  }
+
+  isResolved(): boolean {
+    return this.resolved;
   }
 }

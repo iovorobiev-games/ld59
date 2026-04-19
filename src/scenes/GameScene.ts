@@ -6,6 +6,7 @@ import { CardView } from "../ui/CardView";
 import { EnemyView } from "../ui/EnemyView";
 import { FriendlyView } from "../ui/FriendlyView";
 import { EncounterOverlay } from "../ui/EncounterOverlay";
+import { NightOverlay } from "../ui/NightOverlay";
 import { SignalListView } from "../ui/SignalListView";
 import { playLightningStrike } from "../ui/LightningStrike";
 import { TurnIndicator } from "../ui/TurnIndicator";
@@ -40,6 +41,7 @@ export class GameScene extends Phaser.Scene {
   private enemyView!: EnemyView;
   private friendlyView!: FriendlyView;
   private overlay!: EncounterOverlay;
+  private nightOverlay!: NightOverlay;
   private turnIndicator!: TurnIndicator;
   private signalList!: SignalListView;
   private dimOverlay!: Phaser.GameObjects.Rectangle;
@@ -52,6 +54,7 @@ export class GameScene extends Phaser.Scene {
   private dialogueHintIncludeDecline = true;
   private dialogueHintDelayMs = 10000;
   private animating = false;
+  private nightIntroShown = false;
 
   constructor() {
     super({ key: "GameScene" });
@@ -93,6 +96,7 @@ export class GameScene extends Phaser.Scene {
       textX: width / 2,
       textY: panelTop / 2,
     });
+    this.nightOverlay = new NightOverlay(this);
 
     const cardHomeX = width / 2;
     const cardHomeY = panelTop + PANEL_HEIGHT / 2;
@@ -670,6 +674,22 @@ export class GameScene extends Phaser.Scene {
     this.renderDeck(snap);
   }
 
+  private playNightIntro(nightNumber: number): void {
+    // Skip the fade-in on the very first intro so the player doesn't see the
+    // gameplay briefly before the overlay covers it; subsequent transitions
+    // fade-in normally from the in-progress night.
+    const instant = !this.nightIntroShown;
+    this.nightIntroShown = true;
+    this.nightOverlay.play(
+      nightNumber,
+      () => {
+        this.state.acknowledgeNight();
+        this.startNextEncounter();
+      },
+      { instant },
+    );
+  }
+
   private refreshViews(): void {
     const snap = this.state.snapshot();
     this.lighthouse.setLight(snap.lightOn);
@@ -752,6 +772,13 @@ export class GameScene extends Phaser.Scene {
       this.panel.setCostVisible(true);
       this.panel.setEffectHints("", "");
       this.renderTutorial();
+    } else if (enc?.kind === "night") {
+      this.enemyView.hide();
+      this.friendlyView.hide();
+      this.lighthouse.setArmor(0);
+      this.panel.setCostVisible(false);
+      this.panel.setEffectHints("", "");
+      this.playNightIntro(enc.nightNumber ?? 1);
     } else {
       this.enemyView.hide();
       this.lighthouse.setArmor(0);

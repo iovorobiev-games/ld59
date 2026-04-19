@@ -10,6 +10,7 @@ import {
   Encounter,
   FriendlyEncounter,
   FriendlyEncounterConfig,
+  NightEncounter,
   UnfriendlyEncounter,
   WizardTeachingPlaceholder,
 } from "./Encounter";
@@ -38,11 +39,33 @@ export class EncounterManager {
     this.deck.splice(this.index + 1, 0, enc);
   }
 
-  insertRandomAfterCurrent(enc: Encounter): void {
-    const lo = this.index + 1;
-    const hi = this.deck.length + 1;
-    const at = lo + Math.floor(Math.random() * Math.max(1, hi - lo));
-    this.deck.splice(at, 0, enc);
+  // Replace an upcoming filler friendly with `enc`. Tries the current night
+  // first, then overflows into later nights. Falls back to insertion after
+  // current if no replaceable slot remains (keeps chain progression alive
+  // even after the last night's fillers are gone).
+  replaceUpcomingFriendly(enc: Encounter): boolean {
+    const groups: number[][] = [];
+    let bucket: number[] = [];
+    for (let i = this.index + 1; i < this.deck.length; i++) {
+      const slot = this.deck[i];
+      if (slot instanceof NightEncounter) {
+        groups.push(bucket);
+        bucket = [];
+        continue;
+      }
+      if (slot instanceof FriendlyEncounter && slot.replaceable) {
+        bucket.push(i);
+      }
+    }
+    groups.push(bucket);
+    for (const g of groups) {
+      if (g.length === 0) continue;
+      const at = g[Math.floor(Math.random() * g.length)];
+      this.deck[at] = enc;
+      return true;
+    }
+    this.deck.splice(this.index + 1, 0, enc);
+    return false;
   }
 
   isComplete(): boolean {
@@ -73,6 +96,7 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
       "You mind dim the light for a while?\nFish is skittish these days.",
     leftLabel: "Dim",
     rightLabel: "Refuse",
+    replaceable: true,
   },
   {
     sequence: ["right", "right"],
@@ -85,6 +109,7 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
       "My granddaughter is lost in the woods.\nPlease keep the lights on\nso she can find the way back.",
     leftLabel: "Refuse",
     rightLabel: "Help",
+    replaceable: true,
   },
   {
     sequence: ["left"],
@@ -96,6 +121,7 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
       "We come to fix the lighthouse.\nIt shouldn't be working during maintenance.\nDim the lights, and we begin.",
     leftLabel: "Dim",
     rightLabel: "Refuse",
+    replaceable: true,
   },
 ];
 
@@ -129,6 +155,7 @@ function cloneFriendly(cfg: FriendlyEncounterConfig): FriendlyEncounter {
     nextOnFailure: cfg.nextOnFailure,
     acceptAny: cfg.acceptAny,
     failureReward: cfg.failureReward ? { ...cfg.failureReward } : undefined,
+    replaceable: cfg.replaceable,
     leftLabel: cfg.leftLabel,
     rightLabel: cfg.rightLabel,
     labelsForLight: cfg.labelsForLight,
@@ -152,69 +179,95 @@ function createTentacleEncounter(): UnfriendlyEncounter {
   );
 }
 
-const ENEMY_POOL: EnemyFactory[] = [
-  createTentacleEncounter,
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Wings of Horror",
-        maxHealth: 7,
-        spriteKey: "winged_horror",
-        abilities: [
-          new DealDamageAbility(1),
-          new DealDamageAbility(2),
-          new DealDamageAbility(3),
-          new VampiricSanityAbility(1),
-        ],
-      }),
-    ),
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Sky Wraith",
-        maxHealth: 6,
-        spriteKey: "skywraith",
-        abilities: [
-          new DefendAbility(2),
-          new DealDamageAbility(1),
-          new DealDamageAbility(2),
-        ],
-      }),
-    ),
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Fog of Darkness",
-        maxHealth: 7,
-        spriteKey: "fog",
-        abilities: [new DealDamageAbility(1), new FogAbility()],
-      }),
-    ),
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Sirens",
-        maxHealth: 5,
-        spriteKey: "siren",
-        abilities: [new DealDamageAbility(1), new RitualAbility()],
-      }),
-    ),
-  () =>
-    new UnfriendlyEncounter(
-      new Enemy({
-        name: "Ghost Ship",
-        maxHealth: 10,
-        spriteKey: "ghost_ship",
-        abilities: [
-          new DefendAbility(2),
-          new DefendAbility(3),
-          new DealDamageAbility(2),
-          new DealDamageAbility(3),
-          new DealDamageAbility(4),
-        ],
-      }),
-    ),
+function createWingsOfHorror(): UnfriendlyEncounter {
+  return new UnfriendlyEncounter(
+    new Enemy({
+      name: "Wings of Horror",
+      maxHealth: 7,
+      spriteKey: "winged_horror",
+      abilities: [
+        new DealDamageAbility(1),
+        new DealDamageAbility(2),
+        new DealDamageAbility(3),
+        new VampiricSanityAbility(1),
+      ],
+    }),
+  );
+}
+
+function createSkyWraith(): UnfriendlyEncounter {
+  return new UnfriendlyEncounter(
+    new Enemy({
+      name: "Sky Wraith",
+      maxHealth: 6,
+      spriteKey: "skywraith",
+      abilities: [
+        new DefendAbility(2),
+        new DealDamageAbility(1),
+        new DealDamageAbility(2),
+      ],
+    }),
+  );
+}
+
+function createFogOfDarkness(): UnfriendlyEncounter {
+  return new UnfriendlyEncounter(
+    new Enemy({
+      name: "Fog of Darkness",
+      maxHealth: 7,
+      spriteKey: "fog",
+      abilities: [new DealDamageAbility(1), new FogAbility()],
+    }),
+  );
+}
+
+function createSirens(): UnfriendlyEncounter {
+  return new UnfriendlyEncounter(
+    new Enemy({
+      name: "Sirens",
+      maxHealth: 5,
+      spriteKey: "siren",
+      abilities: [new DealDamageAbility(1), new RitualAbility()],
+    }),
+  );
+}
+
+function createGhostShip(): UnfriendlyEncounter {
+  return new UnfriendlyEncounter(
+    new Enemy({
+      name: "Ghost Ship",
+      maxHealth: 10,
+      spriteKey: "ghost_ship",
+      abilities: [
+        new DefendAbility(2),
+        new DefendAbility(3),
+        new DealDamageAbility(2),
+        new DealDamageAbility(3),
+        new DealDamageAbility(4),
+      ],
+    }),
+  );
+}
+
+interface NightConfig {
+  pool: EnemyFactory[];
+  // If set, this enemy is forced into the night's final slot (the night's
+  // boss). Other enemies are drawn from `pool` (with `bossLast` excluded).
+  bossLast?: EnemyFactory;
+}
+
+// Pools for each night. See "Add encounters divided by nights" brief.
+const NIGHT_CONFIGS: NightConfig[] = [
+  { pool: [createWingsOfHorror, createSirens] },
+  { pool: [createWingsOfHorror, createSirens, createSkyWraith, createFogOfDarkness] },
+  {
+    pool: [createFogOfDarkness, createTentacleEncounter],
+    bossLast: createGhostShip,
+  },
 ];
+
+const ENCOUNTERS_PER_NIGHT = 8;
+const ENEMIES_PER_NIGHT = 3;
 
 function shuffle<T>(items: T[]): T[] {
   const a = [...items];
@@ -225,38 +278,78 @@ function shuffle<T>(items: T[]): T[] {
   return a;
 }
 
-const ENEMY_COUNT_IN_DECK = 3;
-const FRIENDLY_COUNT_IN_DECK = ENEMY_COUNT_IN_DECK * 2;
+function pickEnemies(config: NightConfig): UnfriendlyEncounter[] {
+  const lastCount = config.bossLast ? 1 : 0;
+  const restCount = ENEMIES_PER_NIGHT - lastCount;
+  const restPool = config.pool;
+  const rest: EnemyFactory[] = [];
+  if (restPool.length >= restCount) {
+    rest.push(...shuffle(restPool).slice(0, restCount));
+  } else {
+    // Fallback: pool smaller than the required count, so pick with
+    // replacement so the night still hits its enemy quota.
+    for (let i = 0; i < restCount; i++) {
+      rest.push(restPool[Math.floor(Math.random() * restPool.length)]);
+    }
+  }
+  const picks = [...rest];
+  if (config.bossLast) picks.push(config.bossLast);
+  return picks.map((make) => make());
+}
+
+// Build one night's 8-slot layout: [slot1..slot7, lastEnemy]. Two enemies
+// plus the rest are shuffled into slots 1-7; the third enemy closes the
+// night. Loot fishers are NOT counted in the 8 — they are inserted by the
+// caller after each enemy.
+function buildNightSlots(nightIdx: number): Encounter[] {
+  const enemies = pickEnemies(NIGHT_CONFIGS[nightIdx]);
+  const lastEnemy = enemies[enemies.length - 1];
+  const otherEnemies = enemies.slice(0, enemies.length - 1);
+
+  const wizardCount = 1 + Math.floor(Math.random() * 2); // 1 or 2
+  const wizards: Encounter[] = [];
+  for (let i = 0; i < wizardCount; i++) wizards.push(new WizardTeachingPlaceholder());
+
+  const shipwreck = createEncounterById("bandits_shipwreck", { lightOn: false });
+  const banditsSeeds: Encounter[] = shipwreck ? [shipwreck] : [];
+
+  const fillersNeeded = Math.max(
+    0,
+    ENCOUNTERS_PER_NIGHT - 1 - otherEnemies.length - wizards.length - banditsSeeds.length,
+  );
+  const fillerPool = shuffle(FRIENDLY_POOL);
+  const fillers: Encounter[] = [];
+  for (let i = 0; i < fillersNeeded; i++) {
+    fillers.push(cloneFriendly(fillerPool[i % fillerPool.length]));
+  }
+
+  const frontSlots = shuffle([
+    ...otherEnemies,
+    ...wizards,
+    ...banditsSeeds,
+    ...fillers,
+  ]);
+  return [...frontSlots, lastEnemy];
+}
 
 export interface BuildDeckOptions {
   includeTutorial?: boolean;
 }
 
 export function buildDefaultDeck(opts: BuildDeckOptions = {}): Encounter[] {
-  const pool = opts.includeTutorial
-    ? ENEMY_POOL.filter((make) => make !== createTentacleEncounter)
-    : ENEMY_POOL;
-  const enemies: Encounter[] = shuffle(pool)
-    .slice(0, ENEMY_COUNT_IN_DECK)
-    .map((make) => make());
-  const friendlies: Encounter[] = [new WizardTeachingPlaceholder()];
-  const shipwreck = createEncounterById("bandits_shipwreck", { lightOn: false });
-  if (shipwreck) friendlies.push(shipwreck);
-  const extra = Math.max(0, FRIENDLY_COUNT_IN_DECK - friendlies.length);
-  const friendlyPool = shuffle(FRIENDLY_POOL);
-  for (let i = 0; i < extra; i++) {
-    friendlies.push(cloneFriendly(friendlyPool[i % friendlyPool.length]));
-  }
-  const shuffled = shuffle([...enemies, ...friendlies]);
   const deck: Encounter[] = [];
   if (opts.includeTutorial) {
     deck.push(new TutorialEncounter());
     deck.push(createTentacleEncounter());
     deck.push(createLootFisher());
   }
-  for (const enc of shuffled) {
-    deck.push(enc);
-    if (enc instanceof UnfriendlyEncounter) deck.push(createLootFisher());
+  for (let nightIdx = 0; nightIdx < NIGHT_CONFIGS.length; nightIdx++) {
+    deck.push(new NightEncounter(nightIdx + 1));
+    const slots = buildNightSlots(nightIdx);
+    for (const enc of slots) {
+      deck.push(enc);
+      if (enc instanceof UnfriendlyEncounter) deck.push(createLootFisher());
+    }
   }
   return deck;
 }
