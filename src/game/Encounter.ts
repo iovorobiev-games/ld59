@@ -282,7 +282,7 @@ export interface TeachingEncounterConfig {
 }
 
 const DEFAULT_TEACHING_GREETING =
-  "A blinding abyss offered new signals.\nSend me a signal and I shall cast one.";
+  "Blinding Abyss offered new Spells.\nSend me a signal and I shall cast one.";
 const DEFAULT_TEACHING_FAILURE =
   "Nah — signal A or signal B.";
 

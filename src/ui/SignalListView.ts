@@ -8,43 +8,59 @@ import {
 } from "../game/Signal";
 import { createText } from "./fonts";
 
-const MARGIN = 24;
-const PANEL_WIDTH = 320;
-const ROW_HEIGHT = 44;
-const ROW_GAP = 4;
-const HEADER_HEIGHT = 40;
-const CURRENT_HEIGHT = 40;
-const PAD = 12;
-const DOT_RADIUS = 6;
-const DOT_SPACING = 18;
-const BG_COLOR = 0x101018;
-const BG_ALPHA = 0.6;
-const NAME_COLOR = "#ffe6a8";
-const DESC_COLOR = "#c8bfa0";
-const ON_COLOR = 0xffd27a;
-const OFF_COLOR = 0x444455;
-const EMPTY_COLOR = 0x2a2a3a;
-const ROW_FLASH_COLOR = 0x5a3a14;
-const DEPTH = 50;
+// Paper sprite (signals_list.png) is authored on a full 1920x1080 canvas with
+// the torn paper landing on the door's upper half. Rendering at (0,-16) nudges
+// it 16px up so the pin/top edge is clear of the bottom panel strip.
+const PAPER_LEFT = 1299;
+const PAPER_TOP = 273;
+const PAPER_WIDTH = 293;
+const PAPER_HEIGHT = 389;
+const PAPER_Y_OFFSET = -16;
+
+const CONTENT_PAD_X = 34;
+const CONTENT_PAD_TOP = 18;
+const CONTENT_LEFT = PAPER_LEFT + CONTENT_PAD_X;
+const CONTENT_WIDTH = PAPER_WIDTH - CONTENT_PAD_X * 2;
+const CONTENT_TOP = PAPER_TOP + CONTENT_PAD_TOP + PAPER_Y_OFFSET;
+
+const TITLE_HEIGHT = 32;
+const ROW_HEIGHT = 46;
+
+const PIP_SCALE = 0.45;
+const PIP_SPACING = 22;
+// Derived from lit.png native width (43px) * PIP_SCALE. Used to reserve room
+// for the row's signal pattern so the name text wraps before colliding with it.
+const PIP_SLOT_WIDTH = 43 * PIP_SCALE;
+
+const INK_DARK = "#2a1f0c";
+const INK_NAME = "#3a2a14";
+const INK_DESC = "#60482c";
+const ROW_FLASH_COLOR = 0xffd27a;
+
+// Paper sits over the door but under the friendly-view text and the bottom
+// panel. Those surfaces explicitly claim higher depths so the list is always
+// occluded by them when they overlap.
+const DEPTH_PAPER = 4;
+const DEPTH_CONTENT = 5;
 
 interface SignalRow {
   id: SignalId;
-  bg: Phaser.GameObjects.Rectangle;
+  highlight: Phaser.GameObjects.Rectangle;
 }
 
 export class SignalListView {
   private scene: Phaser.Scene;
-  private screenHeight: number;
+  private paper: Phaser.GameObjects.Image;
   private created: Phaser.GameObjects.GameObject[] = [];
   private rows: SignalRow[] = [];
-  private currentDots: Phaser.GameObjects.Arc[] = [];
-  private panelBounds: { left: number; top: number; width: number; height: number } | null = null;
   private knownKey = "";
-  private lastSequence: readonly LightState[] = [];
 
-  constructor(scene: Phaser.Scene, screenHeight: number, knownIds: readonly SignalId[]) {
+  constructor(scene: Phaser.Scene, _screenHeight: number, knownIds: readonly SignalId[]) {
     this.scene = scene;
-    this.screenHeight = screenHeight;
+    this.paper = scene.add
+      .image(0, PAPER_Y_OFFSET, "signals_list")
+      .setOrigin(0, 0)
+      .setDepth(DEPTH_PAPER);
     this.setKnown(knownIds);
   }
 
@@ -54,60 +70,36 @@ export class SignalListView {
     const key = signals.map((s) => s.id).join(",");
     if (key === this.knownKey) return;
     this.knownKey = key;
-    this.destroyAll();
+    this.destroyContent();
+    this.paper.setVisible(signals.length > 0);
     if (signals.length === 0) return;
-    this.buildPanel(signals);
-    this.setSequence(this.lastSequence);
+    this.buildContent(signals);
   }
 
-  setSequence(history: readonly LightState[]): void {
-    this.lastSequence = history;
-    this.currentDots.forEach((dot, i) => {
-      const state = history[i];
-      if (state === undefined) {
-        dot.fillColor = EMPTY_COLOR;
-        dot.setAlpha(0.6);
-      } else {
-        dot.fillColor = dotColor(state);
-        dot.setAlpha(1);
-      }
-    });
+  setSequence(_history: readonly LightState[]): void {
+    // The CURRENT sequence indicator now lives outside the paper list (on the
+    // lighthouse HUD and bottom panel), so the paper just tracks the known
+    // signals. Kept as a no-op to preserve the existing caller API.
   }
 
   flashSignal(id: SignalId, durationMs = 600): void {
     const row = this.rows.find((r) => r.id === id);
     if (!row) return;
-    this.scene.tweens.killTweensOf(row.bg);
-    row.bg.fillColor = ROW_FLASH_COLOR;
-    row.bg.fillAlpha = 0.95;
+    this.scene.tweens.killTweensOf(row.highlight);
+    row.highlight.fillColor = ROW_FLASH_COLOR;
+    row.highlight.fillAlpha = 0.55;
     this.scene.tweens.add({
-      targets: row.bg,
+      targets: row.highlight,
       fillAlpha: 0,
       duration: durationMs,
       ease: "Cubic.Out",
     });
   }
 
-  rowAnchor(id: SignalId): { x: number; y: number } | null {
-    const row = this.rows.find((r) => r.id === id);
-    if (!row) return null;
-    return { x: row.bg.x + row.bg.width / 2, y: row.bg.y + row.bg.height / 2 };
-  }
-
-  panelRightCenter(): { x: number; y: number } | null {
-    if (!this.panelBounds) return null;
-    return {
-      x: this.panelBounds.left + this.panelBounds.width,
-      y: this.panelBounds.top + this.panelBounds.height / 2,
-    };
-  }
-
-  private destroyAll(): void {
+  private destroyContent(): void {
     this.created.forEach((obj) => obj.destroy());
     this.created = [];
     this.rows = [];
-    this.currentDots = [];
-    this.panelBounds = null;
   }
 
   private track<T extends Phaser.GameObjects.GameObject>(obj: T): T {
@@ -115,94 +107,67 @@ export class SignalListView {
     return obj;
   }
 
-  private buildPanel(signals: Signal[]): void {
-    const panelHeight =
-      PAD * 2 + HEADER_HEIGHT + CURRENT_HEIGHT + signals.length * ROW_HEIGHT + (signals.length - 1) * ROW_GAP;
-    const panelLeft = MARGIN;
-    const panelTop = this.screenHeight - MARGIN - panelHeight;
-    this.panelBounds = { left: panelLeft, top: panelTop, width: PANEL_WIDTH, height: panelHeight };
-
+  private buildContent(signals: Signal[]): void {
+    const titleY = CONTENT_TOP;
     this.track(
-      this.scene.add
-        .rectangle(panelLeft, panelTop, PANEL_WIDTH, panelHeight, BG_COLOR, BG_ALPHA)
-        .setOrigin(0)
-        .setStrokeStyle(1, 0x2a2a3a)
-        .setDepth(DEPTH),
+      createText(this.scene, CONTENT_LEFT + CONTENT_WIDTH / 2, titleY, "SIGNALS", {
+        fontSize: "26px",
+        color: INK_DARK,
+      })
+        .setOrigin(0.5, 0)
+        .setDepth(DEPTH_CONTENT),
     );
 
-    this.track(
-      createText(this.scene, panelLeft + PAD, panelTop + PAD, "SIGNALS", {
-        fontSize: "24px",
-        color: "#ffd27a",
-      }).setDepth(DEPTH + 1),
-    );
-
-    this.buildCurrentSequence(panelLeft, panelTop + PAD + HEADER_HEIGHT);
-
-    const rowsTop = panelTop + PAD + HEADER_HEIGHT + CURRENT_HEIGHT;
+    const rowsAvailable = PAPER_HEIGHT - CONTENT_PAD_TOP - TITLE_HEIGHT - 10;
+    const rowHeight = Math.min(ROW_HEIGHT, Math.floor(rowsAvailable / signals.length));
+    const rowsTop = titleY + TITLE_HEIGHT + 6;
     signals.forEach((signal, i) => {
-      const rowY = rowsTop + i * (ROW_HEIGHT + ROW_GAP);
-      this.drawRow(signal, panelLeft, rowY);
+      this.drawRow(signal, rowsTop + i * rowHeight, rowHeight);
     });
   }
 
-  private buildCurrentSequence(panelLeft: number, y: number): void {
-    this.track(
-      createText(this.scene, panelLeft + PAD, y, "CURRENT", {
-        fontSize: "14px",
-        color: "#8a8aa0",
-      }).setDepth(DEPTH + 1),
-    );
-
-    const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * SIGNAL_SEQUENCE_LENGTH + DOT_SPACING / 2;
-    const dotsY = y + 10;
-    for (let i = 0; i < SIGNAL_SEQUENCE_LENGTH; i++) {
-      const dot = this.scene.add
-        .circle(dotsX + i * DOT_SPACING, dotsY, DOT_RADIUS, EMPTY_COLOR)
-        .setStrokeStyle(1, 0x101018)
-        .setAlpha(0.6)
-        .setDepth(DEPTH + 1);
-      this.track(dot);
-      this.currentDots.push(dot);
-    }
-  }
-
-  private drawRow(signal: Signal, panelLeft: number, rowY: number): void {
-    const bg = this.scene.add
-      .rectangle(panelLeft + PAD / 2, rowY - 2, PANEL_WIDTH - PAD, ROW_HEIGHT, ROW_FLASH_COLOR, 0)
+  private drawRow(signal: Signal, rowY: number, rowHeight: number): void {
+    const highlight = this.scene.add
+      .rectangle(CONTENT_LEFT - 4, rowY - 2, CONTENT_WIDTH + 8, rowHeight, ROW_FLASH_COLOR, 0)
       .setOrigin(0)
-      .setDepth(DEPTH);
-    this.track(bg);
+      .setDepth(DEPTH_CONTENT - 1);
+    this.track(highlight);
+
+    const pipsRight = CONTENT_LEFT + CONTENT_WIDTH;
+    const pipsSlot = PIP_SPACING * (SIGNAL_SEQUENCE_LENGTH - 1) + PIP_SLOT_WIDTH;
+    const nameMaxWidth = CONTENT_WIDTH - pipsSlot - 8;
 
     this.track(
-      createText(this.scene, panelLeft + PAD, rowY, signal.name, {
+      createText(this.scene, CONTENT_LEFT, rowY, signal.name, {
         fontSize: "18px",
-        color: NAME_COLOR,
-      }).setDepth(DEPTH + 1),
+        color: INK_NAME,
+        fontStyle: "bold",
+        wordWrap: { width: nameMaxWidth },
+      }).setDepth(DEPTH_CONTENT),
     );
 
     this.track(
-      createText(this.scene, panelLeft + PAD, rowY + 20, signal.description, {
-        fontSize: "12px",
-        color: DESC_COLOR,
-      }).setDepth(DEPTH + 1),
+      createText(this.scene, CONTENT_LEFT, rowY + 20, signal.description, {
+        fontSize: "16px",
+        color: INK_DESC,
+        wordWrap: { width: CONTENT_WIDTH },
+      }).setDepth(DEPTH_CONTENT),
     );
 
-    const dotsX = panelLeft + PANEL_WIDTH - PAD - DOT_SPACING * 3 + DOT_SPACING / 2;
-    const dotsY = rowY + ROW_HEIGHT / 2 - 4;
+    const pipsY = rowY + rowHeight / 2;
     signal.sequence.forEach((state, idx) => {
-      this.track(
-        this.scene.add
-          .circle(dotsX + idx * DOT_SPACING, dotsY, DOT_RADIUS, dotColor(state))
-          .setStrokeStyle(1, 0x101018)
-          .setDepth(DEPTH + 1),
-      );
+      const cx =
+        pipsRight -
+        (SIGNAL_SEQUENCE_LENGTH - 1 - idx) * PIP_SPACING -
+        PIP_SLOT_WIDTH / 2;
+      const pip = this.scene.add
+        .image(cx, pipsY, state === "on" ? "lit" : "unlit")
+        .setOrigin(0.5, 0.5)
+        .setScale(PIP_SCALE)
+        .setDepth(DEPTH_CONTENT);
+      this.track(pip);
     });
 
-    this.rows.push({ id: signal.id, bg });
+    this.rows.push({ id: signal.id, highlight });
   }
-}
-
-function dotColor(state: LightState): number {
-  return state === "on" ? ON_COLOR : OFF_COLOR;
 }

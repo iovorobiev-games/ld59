@@ -40,14 +40,26 @@ const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
   ghost: "ghost",
 };
 
+const CONTAINER_DEPTH = 3;
+// Text lives above the SignalListView paper so the typewriter output is never
+// obscured by pinned paper content. Kept strictly less than BottomPanel so the
+// panel still wins where they overlap (they don't, but keeps the ordering
+// consistent with "everything UI sits above the paper").
+export const FRIENDLY_TEXT_DEPTH = 6;
+
 const TEXT_TOP = CUTOUT_BOTTOM + 60;
 const TEXT_BOTTOM = DOOR_HEIGHT - 60;
 const TEXT_CENTER_Y = (TEXT_TOP + TEXT_BOTTOM) / 2;
+const TEXT_BG_WIDTH = DOOR_WIDTH - 80;
+const TEXT_BG_HEIGHT = TEXT_BOTTOM - TEXT_TOP + 40;
+const TEXT_BG_COLOR = 0x000000;
+const TEXT_BG_ALPHA = 0.65;
 
 export class FriendlyView {
   private scene: Phaser.Scene;
   private character: Phaser.GameObjects.Image;
   private door: Phaser.GameObjects.Image;
+  private textBg: Phaser.GameObjects.Rectangle;
   private text: Phaser.GameObjects.Text;
   private typewriter: TypewriterText;
   private slideTween?: Phaser.Tweens.Tween;
@@ -83,26 +95,37 @@ export class FriendlyView {
       .image(-DOOR_WIDTH, pointerTopLocalY, "pointer")
       .setOrigin(1, 0);
 
-    this.text = createText(
-      scene,
-      -DOOR_WIDTH / 2,
-      -(DOOR_HEIGHT - TEXT_CENTER_Y),
-      "",
-      {
-        fontSize: "44px",
-        color: "#f5e6b8",
-        align: "center",
-        wordWrap: { width: DOOR_WIDTH - 120 },
-      },
-    ).setOrigin(0.5);
+    const textWorldX = rightEdgeX - DOOR_WIDTH / 2;
+    const textWorldY = bottomY - (DOOR_HEIGHT - TEXT_CENTER_Y);
+    this.textBg = scene.add
+      .rectangle(
+        textWorldX,
+        textWorldY,
+        TEXT_BG_WIDTH,
+        TEXT_BG_HEIGHT,
+        TEXT_BG_COLOR,
+        TEXT_BG_ALPHA,
+      )
+      .setOrigin(0.5)
+      .setDepth(FRIENDLY_TEXT_DEPTH)
+      .setVisible(false);
+
+    this.text = createText(scene, textWorldX, textWorldY, "", {
+      fontSize: "44px",
+      color: "#f5e6b8",
+      align: "center",
+      wordWrap: { width: DOOR_WIDTH - 120 },
+    })
+      .setOrigin(0.5)
+      .setDepth(FRIENDLY_TEXT_DEPTH);
     this.typewriter = new TypewriterText(
       this.text,
       TYPEWRITER_CHAR_MS,
       (char, index) => this.onTypewriterChar(char, index),
     );
 
-    container.add([backing, this.character, this.door, pointer, this.text]);
-    container.setDepth(3);
+    container.add([backing, this.character, this.door, pointer]);
+    container.setDepth(CONTAINER_DEPTH);
   }
 
   show(
@@ -147,6 +170,7 @@ export class FriendlyView {
       this.character.setTexture(CHARACTER_TEXTURE[character]);
       this.character.x = this.offscreenLocalX;
       this.character.setVisible(true);
+      this.textBg.setVisible(true);
       this.typewriter.setImmediate("");
       this.lastBody = fullText;
       this.slideIn(() =>
@@ -201,6 +225,7 @@ export class FriendlyView {
 
   private slideOut(onComplete?: () => void): void {
     this.slideTween?.stop();
+    this.textBg.setVisible(false);
     this.slideTween = this.scene.tweens.add({
       targets: this.character,
       x: this.offscreenLocalX,

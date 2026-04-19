@@ -71,9 +71,9 @@ export class CardView {
       .setOrigin(0.5, 0)
       .setAlpha(0);
 
-    // Card is rendered above the BottomPanel (depth 0) but below its cost
-    // overlays (depth 10). Stack sprites sit just below the top card.
-    this.container = scene.add.container(homeX, homeY).setDepth(5);
+    // Card renders above the BottomPanel body (depth 6) but below its
+    // card-follow hints (depth 10). Stack sprites sit just below the top card.
+    this.container = scene.add.container(homeX, homeY).setDepth(8);
 
     const shadow = scene.add
       .image(SHADOW_OFFSET_X, SHADOW_OFFSET_Y, "card")
