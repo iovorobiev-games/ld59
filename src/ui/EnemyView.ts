@@ -27,7 +27,6 @@ export class EnemyView {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
   private body: Phaser.GameObjects.Image;
-  private nameLabel: Phaser.GameObjects.Text;
   private reductionLabel: Phaser.GameObjects.Text;
   private intentBg: Phaser.GameObjects.Rectangle;
   private intentLabel: Phaser.GameObjects.Text;
@@ -61,8 +60,8 @@ export class EnemyView {
       .setOrigin(0.5, 0.5);
 
     const intentY = -(groundY - 60);
-    const nameY = intentY + 70;
-    const reductionY = nameY + 60;
+    const healthY = intentY + 70;
+    const reductionY = healthY + 60;
 
     this.intentBg = scene.add
       .rectangle(0, intentY, 140, 52, 0x1a0608, 0.85)
@@ -72,11 +71,6 @@ export class EnemyView {
       color: "#ffd27a",
     }).setOrigin(0.5);
 
-    this.nameLabel = createText(scene, 0, nameY, "", {
-      fontSize: "32px",
-      color: "#ffd0d0",
-    }).setOrigin(0.5);
-
     this.reductionLabel = createText(scene, 0, reductionY, "", {
       fontSize: "28px",
       color: "#9fd6ff",
@@ -84,19 +78,21 @@ export class EnemyView {
 
     this.container.add([
       this.body,
-      this.nameLabel,
       this.reductionLabel,
       this.intentBg,
       this.intentLabel,
     ]);
 
     this.healthBarWorldX = anchorX;
-    this.healthBarWorldY = groundY + reductionY + 40;
+    this.healthBarWorldY = groundY + healthY;
     this.healthBar = new HealthBar(scene, this.healthBarWorldX, this.healthBarWorldY, {
       width: 220,
-      height: 26,
+      height: 44,
       fillColor: 0xff5252,
     });
+    // Beams on the lighthouse HUD sit at depth 2; keep enemy HP on top of the
+    // strobe so the player can always read it even while the cone is firing.
+    this.healthBar.setDepth(10);
 
     this.tooltipBg = scene.add
       .rectangle(0, 0, 10, 10, 0x10070c, 0.95)
@@ -122,13 +118,12 @@ export class EnemyView {
     this.hide();
   }
 
-  show(name: string, health: number, maxHealth: number, visual?: Partial<EnemyVisual>): void {
+  show(_name: string, health: number, maxHealth: number, visual?: Partial<EnemyVisual>): void {
     const v = { ...DEFAULT_ENEMY_VISUAL, ...visual };
     this.body.setTexture(v.spriteKey);
     this.bodyRestY = AERIAL_SPRITES.has(v.spriteKey)
       ? this.aerialBodyRestY
       : this.groundedBodyRestY;
-    this.nameLabel.setText(name);
     this.container.setVisible(true);
     this.healthBar.set(health, maxHealth);
     this.setVisible(true);
