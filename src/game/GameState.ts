@@ -167,7 +167,8 @@ export class GameState {
   private lighthouseDefence = 0;
   private lighthouseArmor = 0;
   private extraActionsThisTurn = 0;
-  private lightningActiveInEncounter = false;
+  private extendPerTurn = 0;
+  private fogApplied = false;
   private combatTutorial: CombatTutorial | null = null;
   private pendingCombatTutorial = false;
 
@@ -366,6 +367,12 @@ export class GameState {
         this.lighthouseArmor += 1;
         card.reductionAdded = 1;
       }
+      if (matched?.id === "lightning" && !enc.enemy.isDead()) {
+        const absorbed = enc.enemy.absorbDamage(2);
+        const dealt = 2 - absorbed;
+        if (dealt > 0) enc.enemy.takeDamage(dealt);
+        result.lightningDamage = dealt;
+      }
     } else if (enc instanceof FriendlyEncounter) {
       const step = enc.notePlayed(direction);
       card.friendlyOutcome = step.outcome;
@@ -415,20 +422,6 @@ export class GameState {
 
     if (this.cardsThisTurn >= CARDS_PER_TURN + this.extraActionsThisTurn) {
       if (enc instanceof UnfriendlyEncounter) {
-        if (this.lightningActiveInEncounter && !enc.enemy.isDead()) {
-          const absorbed = enc.enemy.absorbDamage(1);
-          const dealt = 1 - absorbed;
-          if (dealt > 0) enc.enemy.takeDamage(dealt);
-          result.lightningDamage = dealt;
-        }
-        if (enc.enemy.isDead()) {
-          result.encounterResolvedKind = enc.kind;
-          this.queueChainFollowup(enc);
-          this.cardsThisTurn = 0;
-          this.extraActionsThisTurn = 0;
-          this.phase = "transitioning";
-          return result;
-        }
         enc.enemy.resetArmor();
         if (this.stunNextAttack) {
           this.stunNextAttack = false;
@@ -447,7 +440,7 @@ export class GameState {
         if (!enc.enemy.isDead()) enc.enemy.rollIntent();
       }
       this.cardsThisTurn = 0;
-      this.extraActionsThisTurn = 0;
+      this.extraActionsThisTurn = this.extendPerTurn;
     }
 
     if (this.health <= 0 || this.sanity <= 0) {
@@ -461,11 +454,12 @@ export class GameState {
   advanceEncounter(): void {
     if (this.phase !== "transitioning") return;
     this.fuelSurcharge = 0;
-    this.lightningActiveInEncounter = false;
+    this.fogApplied = false;
     this.stunNextAttack = false;
     this.lighthouseDefence = 0;
     this.lighthouseArmor = 0;
     this.extraActionsThisTurn = 0;
+    this.extendPerTurn = 0;
     const next = this.encounters.advance();
     if (!next) {
       this.phase = "victory";
@@ -652,6 +646,9 @@ export class GameState {
   }
 
   private addFuelSurcharge(amount: number): void {
+    // Fog is the only surcharge source and should not stack within an encounter.
+    if (this.fogApplied) return;
+    this.fogApplied = true;
     this.fuelSurcharge += amount;
   }
 
@@ -674,9 +671,9 @@ export class GameState {
         this.stunNextAttack = true;
         return { id: signal.id };
       case "lightning":
-        this.lightningActiveInEncounter = true;
         return { id: signal.id };
       case "extend":
+        this.extendPerTurn += 1;
         this.extraActionsThisTurn += 1;
         return { id: signal.id };
     }

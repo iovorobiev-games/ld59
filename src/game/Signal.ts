@@ -92,12 +92,12 @@ export const ALL_SIGNALS: readonly Signal[] = [
     id: "lightning",
     name: "Lightning",
     sequence: ["on", "on", "on"],
-    description: "1 damage / turn this encounter",
+    description: "Strike the enemy for 2 damage.",
   },
   {
     id: "extend",
     name: "Extend",
     sequence: ["on", "off", "off"],
-    description: "Add 1 extra card to your deck this turn.",
+    description: "+1 card every turn this battle.",
   },
 ];

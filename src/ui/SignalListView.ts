@@ -118,41 +118,42 @@ export class SignalListView {
         .setDepth(DEPTH_CONTENT),
     );
 
-    const rowsAvailable = PAPER_HEIGHT - CONTENT_PAD_TOP - TITLE_HEIGHT - 10;
-    const rowHeight = Math.min(ROW_HEIGHT, Math.floor(rowsAvailable / signals.length));
-    const rowsTop = titleY + TITLE_HEIGHT + 6;
-    signals.forEach((signal, i) => {
-      this.drawRow(signal, rowsTop + i * rowHeight, rowHeight);
+    let cursorY = titleY + TITLE_HEIGHT + 6;
+    const ROW_GAP = 6;
+    signals.forEach((signal) => {
+      const used = this.drawRow(signal, cursorY);
+      cursorY += used + ROW_GAP;
     });
   }
 
-  private drawRow(signal: Signal, rowY: number, rowHeight: number): void {
+  private drawRow(signal: Signal, rowY: number): number {
+    const pipsRight = CONTENT_LEFT + CONTENT_WIDTH;
+    const pipsSlot = PIP_SPACING * (SIGNAL_SEQUENCE_LENGTH - 1) + PIP_SLOT_WIDTH;
+    const textMaxWidth = CONTENT_WIDTH - pipsSlot - 8;
+
+    const nameText = createText(this.scene, CONTENT_LEFT, rowY, signal.name, {
+      fontSize: "18px",
+      color: INK_NAME,
+      fontStyle: "bold",
+      wordWrap: { width: textMaxWidth },
+    }).setDepth(DEPTH_CONTENT);
+    this.track(nameText);
+
+    const descY = rowY + nameText.height + 2;
+    const descText = createText(this.scene, CONTENT_LEFT, descY, signal.description, {
+      fontSize: "16px",
+      color: INK_DESC,
+      wordWrap: { width: textMaxWidth },
+    }).setDepth(DEPTH_CONTENT);
+    this.track(descText);
+
+    const rowHeight = Math.max(ROW_HEIGHT, descY + descText.height - rowY);
+
     const highlight = this.scene.add
       .rectangle(CONTENT_LEFT - 4, rowY - 2, CONTENT_WIDTH + 8, rowHeight, ROW_FLASH_COLOR, 0)
       .setOrigin(0)
       .setDepth(DEPTH_CONTENT - 1);
     this.track(highlight);
-
-    const pipsRight = CONTENT_LEFT + CONTENT_WIDTH;
-    const pipsSlot = PIP_SPACING * (SIGNAL_SEQUENCE_LENGTH - 1) + PIP_SLOT_WIDTH;
-    const nameMaxWidth = CONTENT_WIDTH - pipsSlot - 8;
-
-    this.track(
-      createText(this.scene, CONTENT_LEFT, rowY, signal.name, {
-        fontSize: "18px",
-        color: INK_NAME,
-        fontStyle: "bold",
-        wordWrap: { width: nameMaxWidth },
-      }).setDepth(DEPTH_CONTENT),
-    );
-
-    this.track(
-      createText(this.scene, CONTENT_LEFT, rowY + 20, signal.description, {
-        fontSize: "16px",
-        color: INK_DESC,
-        wordWrap: { width: CONTENT_WIDTH },
-      }).setDepth(DEPTH_CONTENT),
-    );
 
     const pipsY = rowY + rowHeight / 2;
     signal.sequence.forEach((state, idx) => {
@@ -169,5 +170,6 @@ export class SignalListView {
     });
 
     this.rows.push({ id: signal.id, highlight });
+    return rowHeight;
   }
 }
