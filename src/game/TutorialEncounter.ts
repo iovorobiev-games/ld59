@@ -13,10 +13,10 @@ export type TutorialPhase =
   | "final"
   | "done";
 
-const IGNITE_SIGNAL: readonly LightState[] = ["off", "on", "on"];
+const FUEL_UP_SIGNAL: readonly LightState[] = ["off", "on", "on"];
 
 export interface TutorialSwipeOutcome {
-  castIgnite: boolean;
+  castFuelUp: boolean;
 }
 
 export class TutorialEncounter implements Encounter {
@@ -79,7 +79,7 @@ export class TutorialEncounter implements Encounter {
 
   expectedDirection(): SwipeDirection | null {
     if (!this.isSignalPhase()) return null;
-    const next = IGNITE_SIGNAL[this.signalBuffer.length];
+    const next = FUEL_UP_SIGNAL[this.signalBuffer.length];
     if (!next) return null;
     return next === "off" ? "left" : "right";
   }
@@ -97,31 +97,31 @@ export class TutorialEncounter implements Encounter {
         } else {
           this.phase = "after_right";
         }
-        return { castIgnite: false };
+        return { castFuelUp: false };
       case "instruct_signal":
       case "wrong_signal": {
         const state: LightState = direction === "left" ? "off" : "on";
         this.signalBuffer.push(state);
-        if (this.signalBuffer.length > IGNITE_SIGNAL.length) {
+        if (this.signalBuffer.length > FUEL_UP_SIGNAL.length) {
           this.signalBuffer.splice(
             0,
-            this.signalBuffer.length - IGNITE_SIGNAL.length,
+            this.signalBuffer.length - FUEL_UP_SIGNAL.length,
           );
         }
-        if (this.signalBuffer.length < IGNITE_SIGNAL.length) {
-          return { castIgnite: false };
+        if (this.signalBuffer.length < FUEL_UP_SIGNAL.length) {
+          return { castFuelUp: false };
         }
-        if (sequencesMatch(this.signalBuffer, IGNITE_SIGNAL)) {
+        if (sequencesMatch(this.signalBuffer, FUEL_UP_SIGNAL)) {
           this.signalBuffer = [];
           this.phase = "after_cast";
-          return { castIgnite: true };
+          return { castFuelUp: true };
         }
         this.signalBuffer = [];
         this.phase = "wrong_signal";
-        return { castIgnite: false };
+        return { castFuelUp: false };
       }
       default:
-        return { castIgnite: false };
+        return { castFuelUp: false };
     }
   }
 

@@ -7,6 +7,7 @@ import { EnemyView } from "../ui/EnemyView";
 import { FriendlyView } from "../ui/FriendlyView";
 import { EncounterOverlay } from "../ui/EncounterOverlay";
 import { SignalListView } from "../ui/SignalListView";
+import { playLightningStrike } from "../ui/LightningStrike";
 import { TurnIndicator } from "../ui/TurnIndicator";
 import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { Sfx } from "../audio/Sfx";
@@ -27,7 +28,7 @@ const STORY_OVERLAY_HOLD_MS = 1400;
 const TUTORIAL_HOLD_MS = 2000;
 const TUTORIAL_FAREWELL_MS = 600;
 const PANEL_HEIGHT = 474;
-const DEFAULT_KNOWN_SIGNALS: SignalId[] = ["ignite"];
+const DEFAULT_KNOWN_SIGNALS: SignalId[] = ["fuelUp"];
 const SIGNAL_ANIM_MS = 900;
 const SIGNAL_SHIFT_MS = 420;
 
@@ -202,7 +203,7 @@ export class GameScene extends Phaser.Scene {
       this.lighthouse.setSignal(snap.signalSequence);
     }
 
-    const continueResolution = () => {
+    const afterLightning = () => {
       if (result.enemyAttack) {
         this.playEnemyAttackSequence(attackerName, () => {
           this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
@@ -213,8 +214,20 @@ export class GameScene extends Phaser.Scene {
       this.finishCardResolution(result, snap);
     };
 
+    const continueResolution = () => {
+      if (result.lightningDamage !== undefined) {
+        this.playLightningStrike(result.lightningDamage, snap, afterLightning);
+        return;
+      }
+      afterLightning();
+    };
+
     if (result.signalCast) {
-      this.playSignalCastAnimation(result.signalCast, continueResolution);
+      this.playSignalCastAnimation(
+        result.signalCast,
+        continueResolution,
+        result.lightningDamage !== undefined,
+      );
       return;
     }
 
@@ -230,7 +243,11 @@ export class GameScene extends Phaser.Scene {
     continueResolution();
   }
 
-  private playSignalCastAnimation(cast: SignalCastEffect, onComplete: () => void): void {
+  private playSignalCastAnimation(
+    cast: SignalCastEffect,
+    onComplete: () => void,
+    suppressLightningStrike = false,
+  ): void {
     this.animating = true;
     this.signalList.flashSignal(cast.id, SIGNAL_ANIM_MS);
     this.lighthouse.playSignalMatch(getSignal(cast.id).sequence, SIGNAL_ANIM_MS);
@@ -258,6 +275,13 @@ export class GameScene extends Phaser.Scene {
       hold: 320,
       onComplete: () => banner.destroy(),
     });
+
+    if (cast.id === "lightning" && !suppressLightningStrike) {
+      playLightningStrike({
+        scene: this,
+        target: this.lightningTarget(),
+      });
+    }
 
     this.time.delayedCall(SIGNAL_ANIM_MS, () => {
       this.animating = false;
@@ -573,6 +597,47 @@ export class GameScene extends Phaser.Scene {
         onComplete,
       );
     });
+  }
+
+  private playLightningStrike(
+    damage: number,
+    snap: GameStateSnapshot,
+    onComplete: () => void,
+  ): void {
+    this.animating = true;
+    const target = this.lightningTarget();
+    if (damage > 0 && snap.encounter?.kind === "unfriendly") {
+      const maxHp = snap.encounter.enemyMaxHealth ?? 1;
+      const postHp = snap.encounter.enemyHealth ?? 0;
+      this.enemyView.setHealth(postHp + damage, maxHp);
+    }
+    playLightningStrike({
+      scene: this,
+      target,
+      onImpact: () => {
+        if (damage > 0) {
+          this.enemyView.flashHit(damage);
+          if (snap.encounter?.kind === "unfriendly") {
+            this.enemyView.setHealth(
+              snap.encounter.enemyHealth ?? 0,
+              snap.encounter.enemyMaxHealth ?? 1,
+            );
+          }
+        }
+      },
+      onComplete: () => {
+        this.animating = false;
+        onComplete();
+      },
+    });
+  }
+
+  private lightningTarget(): { x: number; y: number } {
+    const snap = this.state.snapshot();
+    if (snap.encounter?.kind === "unfriendly") {
+      return this.enemyView.getStrikeTarget();
+    }
+    return { x: ENEMY_ANCHOR_X, y: this.scale.height - PANEL_HEIGHT - 30 };
   }
 
   private flashDim(): void {

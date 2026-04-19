@@ -124,6 +124,7 @@ export interface PlayCardResult {
   storyConsequence?: StoryConsequence;
   gameOutcome?: "lost" | "won";
   signalCast?: SignalCastEffect;
+  lightningDamage?: number;
 }
 
 export const INITIAL_SANITY = 10;
@@ -162,7 +163,7 @@ export class GameState {
   private lighthouseDefence = 0;
   private lighthouseArmor = 0;
   private extraActionsThisTurn = 0;
-  private burnActiveInEncounter = false;
+  private lightningActiveInEncounter = false;
   private combatTutorial: CombatTutorial | null = null;
   private pendingCombatTutorial = false;
 
@@ -400,10 +401,11 @@ export class GameState {
 
     if (this.cardsThisTurn >= CARDS_PER_TURN + this.extraActionsThisTurn) {
       if (enc instanceof UnfriendlyEncounter) {
-        if (this.burnActiveInEncounter && !enc.enemy.isDead()) {
-          const burnAbsorbed = enc.enemy.absorbDamage(1);
-          const burnDealt = 1 - burnAbsorbed;
-          if (burnDealt > 0) enc.enemy.takeDamage(burnDealt);
+        if (this.lightningActiveInEncounter && !enc.enemy.isDead()) {
+          const absorbed = enc.enemy.absorbDamage(1);
+          const dealt = 1 - absorbed;
+          if (dealt > 0) enc.enemy.takeDamage(dealt);
+          result.lightningDamage = dealt;
         }
         if (enc.enemy.isDead()) {
           result.encounterResolvedKind = enc.kind;
@@ -445,7 +447,7 @@ export class GameState {
   advanceEncounter(): void {
     if (this.phase !== "transitioning") return;
     this.fuelSurcharge = 0;
-    this.burnActiveInEncounter = false;
+    this.lightningActiveInEncounter = false;
     this.stunNextAttack = false;
     this.lighthouseDefence = 0;
     this.lighthouseArmor = 0;
@@ -490,11 +492,11 @@ export class GameState {
     const outcome = enc.handleSwipe(direction);
     this.current = this.supplier.draw();
     const result: PlayCardResult = { card: {} };
-    if (outcome.castIgnite) {
+    if (outcome.castFuelUp) {
       const delta = 3;
       this.fuel = Math.max(0, this.fuel + delta);
-      this.signalBook.learn("ignite");
-      result.signalCast = { id: "ignite", fuelDelta: delta };
+      this.signalBook.learn("fuelUp");
+      result.signalCast = { id: "fuelUp", fuelDelta: delta };
     }
     if (enc.isResolved()) {
       result.encounterResolvedKind = "tutorial";
@@ -624,7 +626,7 @@ export class GameState {
 
   private applySignalEffect(signal: Signal): SignalCastEffect {
     switch (signal.id) {
-      case "ignite": {
+      case "fuelUp": {
         const delta = 3;
         this.fuel += delta;
         return { id: signal.id, fuelDelta: delta };
@@ -640,8 +642,8 @@ export class GameState {
       case "confusion":
         this.stunNextAttack = true;
         return { id: signal.id };
-      case "burn":
-        this.burnActiveInEncounter = true;
+      case "lightning":
+        this.lightningActiveInEncounter = true;
         return { id: signal.id };
       case "extend":
         this.extraActionsThisTurn += 1;
