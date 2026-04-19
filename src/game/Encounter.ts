@@ -60,7 +60,8 @@ export type FriendlyCharacter =
   | "bandit"
   | "fisher"
   | "guard"
-  | "ghost";
+  | "ghost"
+  | "builder";
 
 export interface FriendlyLabels {
   left: string;

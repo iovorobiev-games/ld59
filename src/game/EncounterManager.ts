@@ -86,6 +86,17 @@ const FRIENDLY_POOL: FriendlyEncounterConfig[] = [
     leftLabel: "Refuse",
     rightLabel: "Help",
   },
+  {
+    sequence: ["left"],
+    reward: { hp: 2 },
+    successText: "All done!",
+    failureText: "You know better...",
+    character: "builder",
+    greeting:
+      "We come to fix the lighthouse.\nIt shouldn't be working during maintenance.\nDim the lights, and we begin.",
+    leftLabel: "Dim",
+    rightLabel: "Refuse",
+  },
 ];
 
 function createLootFisher(): FriendlyEncounter {

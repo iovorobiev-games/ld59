@@ -38,6 +38,7 @@ const CHARACTER_TEXTURE: Record<FriendlyCharacter, string> = {
   fisher: "fisher",
   guard: "guard",
   ghost: "ghost",
+  builder: "builder",
 };
 
 const TEXT_TOP = CUTOUT_BOTTOM + 60;
