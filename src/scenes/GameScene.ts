@@ -107,7 +107,11 @@ export class GameScene extends Phaser.Scene {
     this.prevLightOn = initSnap.lightOn;
     this.spellList.setKnown(initSnap.knownSpellIds);
     this.spellList.setSequence(initSnap.spellSequence);
-    this.card.show(initSnap.topCard);
+    this.renderDeck(initSnap);
+  }
+
+  private renderDeck(snap: GameStateSnapshot): void {
+    this.card.show(Math.max(0, snap.cardsPerTurn - snap.cardsThisTurn));
   }
 
   private handleCardPlayed(direction: "left" | "right"): void {
@@ -264,7 +268,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.card.show(snap.topCard);
+    this.renderDeck(snap);
     if (snap.encounter?.kind === "unfriendly" && snap.encounter.combatTutorialPhase) {
       this.renderCombatTutorial();
     }
@@ -316,7 +320,7 @@ export class GameScene extends Phaser.Scene {
         this.completeTutorial();
         return;
       }
-      this.card.show(snap.topCard);
+      this.renderDeck(snap);
       this.renderTutorial();
     };
 
@@ -564,7 +568,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.refreshViews();
-    this.card.show(snap.topCard);
+    this.renderDeck(snap);
   }
 
   private refreshViews(): void {

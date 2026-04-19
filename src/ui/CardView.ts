@@ -1,11 +1,12 @@
 import Phaser from "phaser";
-import { Card } from "../game/Card";
+import { createText } from "./fonts";
 
 export type SwipeDirection = "left" | "right";
 export type SwipeCallback = (direction: SwipeDirection) => void;
 export type SwipePredicate = (direction: SwipeDirection) => boolean;
 
 const CARD_W = 248;
+const CARD_H = 344;
 const SWIPE_THRESHOLD = 160;
 const MAX_ROTATION = 0.35;
 
@@ -21,10 +22,20 @@ const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.45;
 const SHADOW_SCALE = 1.03;
 
+// Offsets for cards stacked behind the top card — each card behind peeks out
+// just below the front card to suggest depth.
+const STACK_OFFSET_X = 0;
+const STACK_OFFSET_Y = 8;
+
+// Gap between the bottom edge of the lowest card in the stack and the label.
+const LABEL_GAP_PX = 8;
+
 export class CardView {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
   private sprite: Phaser.GameObjects.Image;
+  private stackSprites: Phaser.GameObjects.Image[] = [];
+  private label: Phaser.GameObjects.Text;
   private homeX: number;
   private homeY: number;
   private dragging = false;
@@ -36,6 +47,7 @@ export class CardView {
   private hintTween?: Phaser.Tweens.Tween;
   private hintHoldTimer?: Phaser.Time.TimerEvent;
   private hintActive = false;
+  private count = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -50,7 +62,18 @@ export class CardView {
     this.canSwipe = canSwipe;
     this.onSwipe = onSwipe;
 
-    this.container = scene.add.container(homeX, homeY);
+    this.label = createText(scene, homeX, homeY, "", {
+      fontSize: "28px",
+      color: "#f0e6d2",
+      stroke: "#000000",
+      strokeThickness: 4,
+    })
+      .setOrigin(0.5, 0)
+      .setAlpha(0);
+
+    // Card is rendered above the BottomPanel (depth 0) but below its cost
+    // overlays (depth 10). Stack sprites sit just below the top card.
+    this.container = scene.add.container(homeX, homeY).setDepth(5);
 
     const shadow = scene.add
       .image(SHADOW_OFFSET_X, SHADOW_OFFSET_Y, "card")
@@ -70,12 +93,54 @@ export class CardView {
     scene.input.on("pointerupoutside", this.handlePointerUp, this);
   }
 
-  show(_card: Card): void {
+  // Render the deck with `count` cards remaining. The top card is the
+  // interactive one; remaining cards are shown stacked behind it.
+  show(count: number): void {
+    this.count = Math.max(0, count);
     this.locked = false;
     this.container.setPosition(this.homeX, this.homeY);
     this.container.setRotation(0);
-    this.container.setAlpha(1);
+    this.container.setAlpha(this.count > 0 ? 1 : 0);
     this.container.setScale(1);
+    this.renderStack();
+    this.updateLabel();
+  }
+
+  private renderStack(): void {
+    for (const s of this.stackSprites) s.destroy();
+    this.stackSprites = [];
+    const behind = Math.max(0, this.count - 1);
+    for (let i = behind; i >= 1; i--) {
+      const darkness = Math.min(0.65, 0.22 * i);
+      const tint = Phaser.Display.Color.GetColor(
+        Math.round(255 * (1 - darkness)),
+        Math.round(255 * (1 - darkness)),
+        Math.round(255 * (1 - darkness)),
+      );
+      const sprite = this.scene.add
+        .image(
+          this.homeX + STACK_OFFSET_X * i,
+          this.homeY + STACK_OFFSET_Y * i,
+          "card",
+        )
+        .setTint(tint)
+        .setDepth(this.container.depth - 0.1);
+      this.stackSprites.push(sprite);
+    }
+  }
+
+  private updateLabel(): void {
+    if (this.count <= 0) {
+      this.label.setAlpha(0);
+      return;
+    }
+    // Anchor the label just below the lowest card in the stack so the gap
+    // stays constant as the stack grows or shrinks.
+    const behind = Math.max(0, this.count - 1);
+    const stackBottomY = this.homeY + CARD_H / 2 + STACK_OFFSET_Y * behind;
+    this.label.setPosition(this.homeX, stackBottomY + LABEL_GAP_PX);
+    this.label.setText(`Cards: ${this.count}`);
+    this.label.setAlpha(1);
   }
 
   // Play a hint animation toward `direction`. If `onCycleEnd` is provided,
@@ -213,6 +278,9 @@ export class CardView {
     this.scene.input.off("pointermove", this.handlePointerMove, this);
     this.scene.input.off("pointerup", this.handlePointerUp, this);
     this.scene.input.off("pointerupoutside", this.handlePointerUp, this);
+    for (const s of this.stackSprites) s.destroy();
+    this.stackSprites = [];
+    this.label.destroy();
     this.container.destroy();
   }
 }
