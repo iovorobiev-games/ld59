@@ -8,10 +8,12 @@ export interface HealthBarOptions {
   bgColor?: number;
   borderColor?: number;
   showText?: boolean;
+  prefix?: string;
 }
 
 export class HealthBar {
   private label: Phaser.GameObjects.Text;
+  private prefix: string;
 
   constructor(
     scene: Phaser.Scene,
@@ -19,6 +21,7 @@ export class HealthBar {
     y: number,
     options: HealthBarOptions,
   ) {
+    this.prefix = options.prefix ?? "";
     this.label = createText(scene, x, y, "", {
       fontSize: `${Math.floor(options.height * 0.9)}px`,
       color: "#ffffff",
@@ -28,7 +31,7 @@ export class HealthBar {
   }
 
   set(current: number, max: number): void {
-    this.label.setText(`${current}/${max}`);
+    this.label.setText(`${this.prefix}${current}/${max}`);
   }
 
   setVisible(visible: boolean): void {
