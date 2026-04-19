@@ -11,6 +11,10 @@ const MAX_ROTATION = 0.35;
 const HINT_OFFSET_X = 60;
 const HINT_ROTATION = 0.08;
 const HINT_DURATION = 520;
+const SHADOW_OFFSET_X = 10;
+const SHADOW_OFFSET_Y = 14;
+const SHADOW_ALPHA = 0.45;
+const SHADOW_SCALE = 1.03;
 
 export class CardView {
   private scene: Phaser.Scene;
@@ -41,11 +45,17 @@ export class CardView {
 
     this.container = scene.add.container(homeX, homeY);
 
+    const shadow = scene.add
+      .image(SHADOW_OFFSET_X, SHADOW_OFFSET_Y, "card")
+      .setTint(0x000000)
+      .setAlpha(SHADOW_ALPHA)
+      .setScale(SHADOW_SCALE);
+
     this.sprite = scene.add
       .image(0, 0, "card")
       .setInteractive({ useHandCursor: true });
 
-    this.container.add(this.sprite);
+    this.container.add([shadow, this.sprite]);
 
     this.sprite.on("pointerdown", this.handlePointerDown, this);
     scene.input.on("pointermove", this.handlePointerMove, this);
