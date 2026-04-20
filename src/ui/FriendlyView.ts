@@ -162,9 +162,9 @@ export class FriendlyView {
     );
   }
 
-  setText(text: string): void {
+  setText(text: string, onReady?: () => void): void {
     this.lastBody = text;
-    this.typewriter.play(text);
+    this.typewriter.play(text, onReady);
   }
 
   showTutorial(text: string, onReady?: () => void): void {

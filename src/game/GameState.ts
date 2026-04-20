@@ -91,6 +91,7 @@ export interface GameStateSnapshot {
   cardsPerTurn: number;
   lightFuelCost: number;
   encounter: EncounterSnapshot | null;
+  finalEncounter: boolean;
   signalSequence: readonly LightState[];
   knownSignalIds: readonly SignalId[];
   nightProgress: { nightNumber: number; position: number; total: number } | null;
@@ -227,6 +228,7 @@ export class GameState {
       cardsPerTurn: CARDS_PER_TURN + this.extraActionsThisTurn,
       lightFuelCost: this.lightFuelCost,
       encounter: this.snapshotEncounter(),
+      finalEncounter: this.encounters.isLast(),
       signalSequence: [...this.signalBook.sequence()],
       knownSignalIds: [...this.signalBook.knownIds()],
       nightProgress: this.encounters.nightProgress(),
@@ -331,7 +333,11 @@ export class GameState {
       if (direction === "right" && this.fuel < this.lightFuelCost) return false;
       return true;
     }
-    if (this.combatTutorial && enc instanceof UnfriendlyEncounter) {
+    if (
+      this.combatTutorial &&
+      this.combatTutorial.blocksDeck() &&
+      enc instanceof UnfriendlyEncounter
+    ) {
       const expected = this.combatTutorial.expectedDirection();
       if (!expected) return false;
       if (direction !== expected) return false;

@@ -4,10 +4,14 @@ import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 
 interface GameOverData {
   won?: boolean;
+  fadeIn?: boolean;
 }
+
+const FADE_IN_MS = 1200;
 
 export class GameOverScene extends Phaser.Scene {
   private won = false;
+  private fadeIn = false;
 
   constructor() {
     super({ key: "GameOverScene" });
@@ -15,6 +19,7 @@ export class GameOverScene extends Phaser.Scene {
 
   init(data: GameOverData): void {
     this.won = data?.won === true;
+    this.fadeIn = data?.fadeIn === true;
   }
 
   create(): void {
@@ -22,6 +27,7 @@ export class GameOverScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor(this.won ? "#0f1a05" : "#05080f");
     applyCrtPipeline(this);
+    if (this.fadeIn) this.cameras.main.fadeIn(FADE_IN_MS, 0, 0, 0);
 
     createText(
       this,

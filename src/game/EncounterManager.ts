@@ -28,6 +28,10 @@ export class EncounterManager {
     return this.index < this.deck.length ? this.deck[this.index] : null;
   }
 
+  isLast(): boolean {
+    return this.index === this.deck.length - 1;
+  }
+
   advance(): Encounter | null {
     this.index += 1;
     return this.current();

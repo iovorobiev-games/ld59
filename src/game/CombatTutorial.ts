@@ -42,6 +42,12 @@ export class CombatTutorial {
     return this.phase === "instruct_left" || this.phase === "instruct_right";
   }
 
+  // outro/bye auto-advance and don't gate the deck — combat continues
+  // underneath while the keeper waves goodbye.
+  blocksDeck(): boolean {
+    return this.phase !== "outro" && this.phase !== "bye";
+  }
+
   expectedDirection(): SwipeDirection | null {
     if (this.phase === "instruct_left") return "left";
     if (this.phase === "instruct_right") return "right";
