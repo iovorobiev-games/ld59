@@ -1,5 +1,9 @@
 import Phaser from "phaser";
-import { GameState, GameStateSnapshot } from "../game/GameState";
+import {
+  BASE_LIGHT_FUEL_COST,
+  GameState,
+  GameStateSnapshot,
+} from "../game/GameState";
 import { LighthouseView } from "../ui/LighthouseView";
 import { BottomPanel, PANEL_TOP_TRANSPARENT } from "../ui/BottomPanel";
 import { CardView } from "../ui/CardView";
@@ -846,6 +850,7 @@ export class GameScene extends Phaser.Scene {
       this.card.getDragOffset(),
       snap.fuel >= snap.lightFuelCost,
       snap.lightFuelCost,
+      snap.lightFuelCost > BASE_LIGHT_FUEL_COST,
     );
   }
 }
