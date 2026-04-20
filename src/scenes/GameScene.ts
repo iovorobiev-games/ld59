@@ -329,11 +329,12 @@ export class GameScene extends Phaser.Scene {
 
     if (result.encounterResolvedKind === "friendly") {
       const msg = result.friendlyMessage ?? "";
-      if (msg) this.friendlyView.setText(msg);
       if (snap.finalEncounter) {
-        this.playFinalFadeOut();
+        if (msg) this.friendlyView.setText(msg, () => this.playFinalFadeOut());
+        else this.playFinalFadeOut();
         return;
       }
+      if (msg) this.friendlyView.setText(msg);
       this.time.delayedCall(FRIENDLY_HOLD_MS, () => {
         this.friendlyView.hide(() => this.startNextEncounter());
       });

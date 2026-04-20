@@ -133,8 +133,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
     blinkFriendly({
       character: "wife",
       lightOn: ctx.lightOn,
-      greeting:
-        "Is it really you?\nAre you really there?\nCan you... blink?",
+      greeting: `Is it really you?\nAre you really there?\nCan you... blink ${blinkIconsFor(ctx.lightOn)}?`,
       successText: "*the woman cries and runs away*",
       failureText: "...",
       successReward: { sanity: 2 },
@@ -147,8 +146,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
     return blinkFriendly({
       character: "wife",
       lightOn: ctx.lightOn,
-      greeting:
-        "I brought your favourite\nfishing rod...\nIt was your favourite anyway.\n*you feel a sudden urge to blink*",
+      greeting: `I brought your favourite\nfishing rod...\nIt was your favourite anyway.\n*you feel a sudden urge to blink ${blinkIconsFor(ctx.lightOn)}*`,
       successText: "I still love you...",
       failureText: "Are you still there?\nI'll leave it here, anyway...",
       successReward: { sanity: 2 },
@@ -160,8 +158,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
     blinkFriendly({
       character: "wizard",
       lightOn: ctx.lightOn,
-      greeting:
-        "I wonder, lightkeeper...\nDo you feel alive?\nBlink if you do.",
+      greeting: `I wonder, lightkeeper...\nDo you feel alive?\nBlink ${blinkIconsFor(ctx.lightOn)} if you do.`,
       successText:
         "I see. I think my spell\nwas too powerful then.\nI will need to rework it.\nFor now... don't be afraid,\nthis is not your first time.",
       failureText: "Finally,\nI found a balanced spell...",
