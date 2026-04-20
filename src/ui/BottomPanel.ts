@@ -6,6 +6,7 @@ import { createBBCodeText, createText } from "./fonts";
 const SANITY_HIGHLIGHT = 0x6f5fff;
 const FUEL_HIGHLIGHT = 0xffb030;
 const BLOCKED_HIGHLIGHT = 0x8a1a1a;
+const FOG_BASE_ALPHA = 0.25;
 const HINT_FADE_PX = 30;
 const HINT_FULL_PX = 140;
 
@@ -47,6 +48,7 @@ export class BottomPanel {
   private leftSignalDots: Phaser.GameObjects.Arc[] = [];
   private rightSignalDots: Phaser.GameObjects.Arc[] = [];
   private signalVisible = false;
+  private fogNotice: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
@@ -121,6 +123,17 @@ export class BottomPanel {
       { fontSize: "26px", color: "#4a2a08" },
     )
       .setOrigin(0.5)
+      .setDepth(PANEL_BASE_DEPTH);
+
+    this.fogNotice = createText(
+      scene,
+      halfW + halfW / 2,
+      panelTopY + 200,
+      "",
+      { fontSize: "24px", color: "#ffd2d2", align: "center" },
+    )
+      .setOrigin(0.5, 0)
+      .setAlpha(0)
       .setDepth(PANEL_BASE_DEPTH);
 
     // Impact hints sit just beside the card and follow it during drag.
@@ -303,6 +316,7 @@ export class BottomPanel {
     dragOffset: number,
     fuelAvailable: boolean,
     fuelCost: number,
+    fogActive: boolean = false,
   ): void {
     const left = Math.max(0, -dragOffset);
     const right = Math.max(0, dragOffset);
@@ -319,16 +333,30 @@ export class BottomPanel {
     this.leftReward.x = leftX;
     this.leftReward.setAlpha(this.leftReward.text ? leftAlpha : 0);
 
-    if (fuelAvailable || !this.costVisible) {
-      this.fuelHighlight.fillColor = FUEL_HIGHLIGHT;
-      this.fuelHighlight.fillAlpha = rightAlpha * 0.45;
-      this.rightImpact.setText(`-${fuelCost} Fuel`).setColor("#4a2a08");
-      this.rightEffect.setColor("#4a2a08");
+    const showBlocked = this.costVisible && !fuelAvailable;
+    const showFogWarn = this.costVisible && fuelAvailable && fogActive;
+    if (fogActive) {
+      this.fogNotice
+        .setText(`Intense fog: Light costs ${fuelCost} Fuel`)
+        .setAlpha(1);
     } else {
+      this.fogNotice.setAlpha(0);
+    }
+    if (showBlocked) {
       this.fuelHighlight.fillColor = BLOCKED_HIGHLIGHT;
       this.fuelHighlight.fillAlpha = rightAlpha * 0.55;
       this.rightImpact.setText("No fuel left!").setColor("#ff5252");
       this.rightEffect.setColor("#ff5252");
+    } else if (showFogWarn) {
+      this.fuelHighlight.fillColor = BLOCKED_HIGHLIGHT;
+      this.fuelHighlight.fillAlpha = Math.max(FOG_BASE_ALPHA, rightAlpha * 0.45);
+      this.rightImpact.setText(`-${fuelCost} Fuel`).setColor("#4a2a08");
+      this.rightEffect.setColor("#4a2a08");
+    } else {
+      this.fuelHighlight.fillColor = FUEL_HIGHLIGHT;
+      this.fuelHighlight.fillAlpha = rightAlpha * 0.45;
+      this.rightImpact.setText(`-${fuelCost} Fuel`).setColor("#4a2a08");
+      this.rightEffect.setColor("#4a2a08");
     }
     this.rightImpact.setAlpha(this.costVisible ? rightAlpha : 0);
     const rightX =
