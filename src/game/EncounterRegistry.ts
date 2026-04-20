@@ -61,6 +61,7 @@ const FACTORIES: Record<EncounterId, EncounterFactory> = {
       nextOnFailure: "guardsman",
       leftLabel: "Dim",
       rightLabel: "Refuse",
+      replaceable: true,
     }),
 
   ghost: () =>

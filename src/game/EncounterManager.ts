@@ -54,9 +54,9 @@ export class EncounterManager {
   }
 
   // Replace an upcoming filler friendly with `enc`. Tries the current night
-  // first, then overflows into later nights. Falls back to insertion after
-  // current if no replaceable slot remains (keeps chain progression alive
-  // even after the last night's fillers are gone).
+  // first, then overflows into later nights. Returns false (and drops `enc`)
+  // when no replaceable slot remains in any future night — follow-ups must
+  // land on an existing slot, never expand the deck.
   replaceUpcomingFriendly(enc: Encounter): boolean {
     const groups: number[][] = [];
     let bucket: number[] = [];
@@ -78,7 +78,6 @@ export class EncounterManager {
       this.deck[at] = enc;
       return true;
     }
-    this.deck.splice(this.index + 1, 0, enc);
     return false;
   }
 
@@ -374,7 +373,10 @@ function buildNightSlots(nightIdx: number): Encounter[] {
   const wizards: Encounter[] = [];
   for (let i = 0; i < wizardCount; i++) wizards.push(new WizardTeachingPlaceholder());
 
-  const shipwreck = createEncounterById("bandits_shipwreck", { lightOn: false });
+  // Bandits are a Night 1-only arc. Follow-ups (ghost/guardsman/...) spill
+  // into later nights only via replaceUpcomingFriendly if night 1 is full.
+  const shipwreck =
+    nightIdx === 0 ? createEncounterById("bandits_shipwreck", { lightOn: false }) : null;
   const banditsSeeds: Encounter[] = shipwreck ? [shipwreck] : [];
 
   const fillersNeeded = Math.max(
