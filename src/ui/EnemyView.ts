@@ -277,6 +277,23 @@ export class EnemyView {
     });
   }
 
+  playNonAttack(onComplete: () => void): void {
+    this.scene.tweens.killTweensOf(this.container);
+    const baseX = this.container.x;
+    this.scene.tweens.add({
+      targets: this.container,
+      x: baseX + 22,
+      duration: 70,
+      ease: "Sine.InOut",
+      yoyo: true,
+      repeat: 3,
+      onComplete: () => {
+        this.container.x = baseX;
+        onComplete();
+      },
+    });
+  }
+
   playAttack(
     targetX: number,
     onImpact: () => void,

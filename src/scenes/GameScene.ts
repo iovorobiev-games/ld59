@@ -14,7 +14,7 @@ import { NightProgressView } from "../ui/NightProgressView";
 import { applyCrtPipeline } from "../pipelines/CrtPipeline";
 import { Sfx } from "../audio/Sfx";
 import { createText } from "../ui/fonts";
-import { PlayCardResult, SignalCastEffect } from "../game/GameState";
+import { EnemyAttackEffect, PlayCardResult, SignalCastEffect } from "../game/GameState";
 import {
   BB_ICON_LIT,
   BB_ICON_UNLIT,
@@ -219,7 +219,7 @@ export class GameScene extends Phaser.Scene {
 
     const afterLightning = () => {
       if (result.enemyAttack) {
-        this.playEnemyAttackSequence(attackerName, () => {
+        this.playEnemyActionSequence(attackerName, result.enemyAttack, () => {
           this.lighthouse.setHealth(snap.lighthouseHealth, snap.lighthouseHealthMax);
           this.finishCardResolution(result, snap);
         });
@@ -577,20 +577,22 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private playEnemyAttackSequence(enemyName: string, onComplete: () => void): void {
+  private playEnemyActionSequence(
+    enemyName: string,
+    attack: EnemyAttackEffect,
+    onComplete: () => void,
+  ): void {
     const { width, height } = this.scale;
-    const banner = createText(
-      this,
-      width / 2,
-      height / 3,
-      `${enemyName.toUpperCase()} ATTACKS`,
-      {
-        fontSize: "96px",
-        color: "#ff5252",
-        stroke: "#000000",
-        strokeThickness: 8,
-      },
-    )
+    const dealtDamage = attack.dealt > 0;
+    const bannerText = dealtDamage
+      ? `${enemyName.toUpperCase()} ATTACKS`
+      : `${enemyName.toUpperCase()}: ${attack.ability.toUpperCase()}`;
+    const banner = createText(this, width / 2, height / 3, bannerText, {
+      fontSize: "96px",
+      color: dealtDamage ? "#ff5252" : "#ffb347",
+      stroke: "#000000",
+      strokeThickness: 8,
+    })
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(200);
@@ -605,15 +607,19 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.time.delayedCall(420, () => {
-      const impact = this.lighthouse.getImpactPoint();
-      this.enemyView.playAttack(
-        impact.x,
-        () => {
-          this.lighthouse.playHit();
-          this.cameras.main.shake(420, 0.014);
-        },
-        onComplete,
-      );
+      if (dealtDamage) {
+        const impact = this.lighthouse.getImpactPoint();
+        this.enemyView.playAttack(
+          impact.x,
+          () => {
+            this.lighthouse.playHit();
+            this.cameras.main.shake(420, 0.014);
+          },
+          onComplete,
+        );
+      } else {
+        this.enemyView.playNonAttack(onComplete);
+      }
     });
   }
 
