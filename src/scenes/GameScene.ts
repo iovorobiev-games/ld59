@@ -37,6 +37,8 @@ const SEND_LIT_HINT = `Send ${BB_ICON_LIT} Signal`;
 const ENEMY_ANCHOR_X = 420;
 const OVERLAY_HOLD_MS = 1500;
 const FRIENDLY_HOLD_MS = 2200;
+const FINAL_ENCOUNTER_HOLD_MS = 3500;
+const FINAL_FADE_MS = 3000;
 const STORY_OVERLAY_HOLD_MS = 1400;
 const TUTORIAL_HOLD_MS = 2000;
 const TUTORIAL_FAREWELL_MS = 600;
@@ -328,6 +330,10 @@ export class GameScene extends Phaser.Scene {
     if (result.encounterResolvedKind === "friendly") {
       const msg = result.friendlyMessage ?? "";
       if (msg) this.friendlyView.setText(msg);
+      if (snap.finalEncounter) {
+        this.playFinalFadeOut();
+        return;
+      }
       this.time.delayedCall(FRIENDLY_HOLD_MS, () => {
         this.friendlyView.hide(() => this.startNextEncounter());
       });
@@ -694,6 +700,16 @@ export class GameScene extends Phaser.Scene {
 
     this.refreshViews();
     this.renderDeck(snap);
+  }
+
+  private playFinalFadeOut(): void {
+    this.time.delayedCall(FINAL_ENCOUNTER_HOLD_MS, () => {
+      this.cameras.main.fadeOut(FINAL_FADE_MS, 0, 0, 0);
+      this.cameras.main.once(
+        Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+        () => this.scene.start("GameOverScene", { won: true, fadeIn: true }),
+      );
+    });
   }
 
   private playNightIntro(nightNumber: number): void {
